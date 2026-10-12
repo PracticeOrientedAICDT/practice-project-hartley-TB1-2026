@@ -28,6 +28,7 @@ git push -u origin feature/<name>
 
 Open a PR (body template fills in automatically), request a reviewer,
 address feedback, then squash-merge and delete the branch.
+https://github.com/PracticeOrientedAICDT/practice-project-hartley-TB1-2026/compare/dev...dev
 
 ## Releases (`dev` → `main`)
 
