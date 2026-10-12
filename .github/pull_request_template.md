@@ -21,4 +21,5 @@ Closes #
 ## Reviewer checklist (for the reviewer)
 
 - [ ] CI is green on the latest commit
+- [ ] Tests added to cover new features
 - [ ] I am not the PR author
