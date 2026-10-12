@@ -31,8 +31,10 @@ Enforced by repository rulesets `protect-main` (`refs/heads/main`) and
 
 ## Supporting settings
 
-- CI (`.github/workflows/ci.yml`): `push` on `main`, `dev`, `feature/**`
+- CI (`.github/workflows/ci.yml`): `push` on `main`, `dev`
   + `pull_request` on `main`, `dev`, with `cancel-in-progress: true`.
+  Feature pushes run once via the PR event (no `feature/**` push filter —
+  that caused duplicate runs).
 - Repo: `delete_branch_on_merge: true` — `feature/*` heads auto-delete.
   `main`/`dev` cannot auto-delete (deletion rule above).
 - PR template: `.github/pull_request_template.md` (auto-fills, enforced
