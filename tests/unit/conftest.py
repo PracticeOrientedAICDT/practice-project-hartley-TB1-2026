@@ -8,6 +8,7 @@ UNIT_BUDGET_S = 0.1
 
 
 def pytest_collection_modifyitems(items):
+    """Tag unit tests by path."""
     for item in items:
         if item.nodeid.startswith("tests/unit/"):
             item.add_marker(pytest.mark.unit)
