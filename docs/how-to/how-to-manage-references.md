@@ -7,7 +7,7 @@ We are centralising our academic reference library on zotero
 This centralized approach is useful for ensuring that every piece of research references the same, accurate, and up-to-date source records. It will also make it easier to build our papers for both individual and group papers.
 
 **Access Details:**
-*   **Platform Location:** 
+*   **Platform Location:** Install Zotero desktop https://www.zotero.org (its open source)
 *   **Login Procedure:** You should have received an email after I added you to the group, if you havn't contact Stan
 
 After logging into Zotero, the centralised group should appear as one of your libraries in the "Group Libraries" tab which is under the My Library section in the left toolbar.
