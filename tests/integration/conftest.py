@@ -1,7 +1,4 @@
-"""Auto-mark every test under tests/integration/.
-
-No per-test `@pytest.mark.integration` needed.
-"""
+"""Auto-mark every test under tests/integration/ with `@pytest.mark.integration`."""
 
 import pytest
 

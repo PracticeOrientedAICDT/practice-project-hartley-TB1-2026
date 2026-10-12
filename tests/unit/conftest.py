@@ -1,11 +1,4 @@
-"""Fail any unit test slower than the budget.
-
-Single autouse fixture: applies to everything under tests/unit/
-with no per-test decoration needed.
-
-Unit mark is applied automatically via collection hook below —
-do not add `@pytest.mark.unit` manually.
-"""
+"""Enforce 0.1s unit budget; auto-mark every test with `@pytest.mark.unit`."""
 
 import time
 
