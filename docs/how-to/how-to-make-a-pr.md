@@ -1,20 +1,26 @@
 # How to make a PR
 
-Branch protection can't be enabled on this repo (private, GitHub Free), so
-reviewers enforce these rules by convention.
+Branches `main` and `dev` are protected by repository rulesets
+(`protect-main`, `protect-dev`). The rules below are enforced by GitHub —
+not just by convention.
 
 ## Branches
 
-- `main` — release-ready. Never commit to it directly.
-- `dev` — integration. Never commit to it directly.
+- `main` — release-ready. Never commit to it directly. Never delete it.
+- `dev` — integration. Never commit to it directly. Never delete it.
 - `feature/<name>` — your work. Branch off `dev`, one purpose per branch.
+  Feature branches auto-delete after merge; `main`/`dev` are blocked from
+  deletion and force-pushes by the rulesets.
 
-## Rules
+## Rules (enforced)
 
-- All changes go through a PR. No direct pushes to `main` or `dev`.
+- All changes go through a PR. No direct pushes to `main` or `dev`
+  (blocked by ruleset; admins bypass only for emergencies).
 - Feature PRs target `dev`. Only `dev` targets `main` (releases).
-- Merge needs: CI green (`lint`, `pytest-unit`, `pytest-integration`),
-  one approval from someone other than the author, and no unresolved threads.
+- Merge needs: CI green (`lint`, `pytest-unit`, `pytest-integration`)
+  on the latest commit with branch up-to-date, one approval from someone
+  other than the author (self-approval never counts), and no unresolved
+  threads. New pushes dismiss stale approvals and need re-review.
 - Re-request review after material changes.
 
 ## Steps
