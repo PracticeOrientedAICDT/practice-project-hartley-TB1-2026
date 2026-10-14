@@ -1,0 +1,8 @@
+latency_ns,training_runs,rms_error,rms_error_n_models,rms_error_se_between_models,mean_error,mean_error_n_models,mean_error_se_between_models,p95_amplitude,p95_amplitude_n_models,p95_amplitude_se_between_models,lost,lost_n_models,lost_se_between_models,settled,settled_n_models,settled_se_between_models,settle_us,settle_us_n_models,settle_us_se_between_models
+0.0,1,0.034376,1,,0.011059,1,,0.013319,1,,0.0,1,,1.0,1,,8.537037,1,
+100.0,1,0.0443,1,,0.024233,1,,0.090924,1,,0.0,1,,0.5,1,,729.740741,1,
+250.0,1,0.041764,1,,0.023307,1,,0.090112,1,,0.0,1,,0.5,1,,730.814815,1,
+500.0,1,0.036404,1,,0.012069,1,,0.039351,1,,0.0,1,,1.0,1,,9.0,1,
+1000.0,1,0.043371,1,,0.022019,1,,0.0811,1,,0.0,1,,0.6,1,,728.796296,1,
+2000.0,1,0.046114,1,,0.01814,1,,0.046817,1,,0.0,1,,1.0,1,,232.444444,1,
+5000.0,1,0.059305,1,,0.023696,1,,0.081899,1,,0.0,1,,0.75,1,,725.82716,1,
