@@ -57,17 +57,13 @@ check: lint types test ## Everything that must pass before commit
 .PHONY: check-all
 check-all: lint types test-slow ## Everything, including training tests
 
-.PHONY: videos
-videos: ## Render the latency-ladder rollout videos into results/videos/
-	$(PY) python scripts/render_videos.py
-
 .PHONY: site
-site: ## Build the local visualisation site (videos + metrics) into site/
-	$(PY) python scripts/build_site.py
+site: ## Build the local results site into site/
+	./view.sh --build-only
 
-.PHONY: site-serve
-site-serve: ## Serve the site at http://localhost:8000
-	$(UV) run python -m http.server 8000 --directory site
+.PHONY: view
+view: ## Build and serve the site at http://localhost:8000
+	./view.sh
 
 .PHONY: verify-results
 verify-results: ## Provenance-check committed results (override with SWEEP=)

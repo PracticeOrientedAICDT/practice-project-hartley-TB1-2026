@@ -16,19 +16,14 @@ dist/
 
 # Experiment artifacts
 #
-# Checkpoints are large and regenerable from manifest + commit -- but the frozen
-# v1 fixtures under tests/fixtures/ are the opposite: they are external anchors
-# that cannot be regenerated without re-running a 4M-step sweep, so they are
-# committed deliberately.
+# Training and site outputs are regenerable locally -- train via README
+# "How to train", view via ./view.sh -- so none of it is committed.
+results/
+site/
+data/
 *.pt
 *.pth
-!tests/fixtures/**/*.pt
-results/raw/**/traces/
-results/raw/**/*.npy
-results/raw/**/*.npz
-
-# Data is downloaded, not committed. LOBSTER sessions live in data/lobster/.
-data/
+*.mp4
 
 # macOS
 .DS_Store

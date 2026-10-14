@@ -480,32 +480,6 @@ class LatencyConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class FinanceConfig:
-    """Phase 3 replay settings (`PLAN.md` section 11).
-
-    Execution assumptions are held constant across every latency condition;
-    the only intervention is inference delay (`PLAN.md` section 11.7).
-    """
-
-    source: str = "synthetic"
-    data_path: str = "data/synthetic"
-    execution_model: str = "aggressive"
-    transaction_cost_bps: float = 0.0
-    prediction_horizon_events: int = 10
-    synthetic: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FinanceConfig:
-        known = {f for f in cls.__dataclass_fields__}
-        kwargs: dict[str, Any] = {k: v for k, v in data.items() if k in known}
-        if "transaction_cost_bps" in kwargs:
-            kwargs["transaction_cost_bps"] = float(kwargs["transaction_cost_bps"])
-        if "synthetic" in kwargs:
-            kwargs["synthetic"] = dict(_require_mapping(kwargs["synthetic"], "finance.synthetic"))
-        return cls(**kwargs)
-
-
-@dataclass(frozen=True, slots=True)
 class ProjectConfig:
     """A complete experiment configuration."""
 
@@ -519,7 +493,6 @@ class ProjectConfig:
     latency: LatencyConfig
     hardware: HardwareSpec
     environment_kwargs: dict[str, Any] = field(default_factory=dict)
-    finance: FinanceConfig = field(default_factory=FinanceConfig)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectConfig:
@@ -546,7 +519,6 @@ class ProjectConfig:
             environment_kwargs=dict(
                 _require_mapping(data.get("environment_kwargs", {}), "environment_kwargs")
             ),
-            finance=FinanceConfig.from_dict(_require_mapping(data.get("finance", {}), "finance")),
         )
 
     def to_dict(self) -> dict[str, Any]:
