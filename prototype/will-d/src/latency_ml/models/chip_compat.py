@@ -51,7 +51,6 @@ class ChipConstraints:
             raise ValueError(f"max_width must be >= 1, got {self.max_width}")
 
 
-#: The contract as documented, pending supervisor confirmation.
 DEFAULT_CONSTRAINTS: ChipConstraints = ChipConstraints()
 
 

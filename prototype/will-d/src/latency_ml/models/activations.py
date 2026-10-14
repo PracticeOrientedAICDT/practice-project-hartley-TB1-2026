@@ -62,7 +62,6 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-#: Upper clip of the bounded ReLU. Fixed by `PROTOCOL.md`.
 CLIP: float = 2.0
 
 
@@ -107,10 +106,6 @@ def bounded_relu() -> HartleyBoundedReLU:
     return HartleyBoundedReLU()
 
 
-#: Name of the activation this repository builds, resolved from the module rather
-#: than written as a literal. Recorded in protocol fingerprints and manifests so
-#: a result identifies its own nonlinearity, and so a typo in the class name
-#: cannot leave a stale label behind in the provenance record.
 ACTIVATION_NAME: str = type(HartleyBoundedReLU()).__name__
 
 

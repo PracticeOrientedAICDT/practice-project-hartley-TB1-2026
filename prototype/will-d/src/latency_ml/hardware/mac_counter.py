@@ -178,7 +178,6 @@ class ResourceAccounting:
         return len(self.adapters)
 
 
-#: Bits per weight by numerical format, for when precision is decided.
 BITS_PER_FORMAT: dict[str, int] = {
     "fp32": 32,
     "float32": 32,

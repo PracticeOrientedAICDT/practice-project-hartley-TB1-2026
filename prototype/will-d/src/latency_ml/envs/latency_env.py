@@ -38,13 +38,12 @@ from gymnasium.core import ActType, ObsType
 
 from latency_ml.timing import ICDI, NATIVE_DT_ENV_NS, Resolution, derive_icdi
 
-#: Info key: integration steps actually executed by this transition.
 HOLD_STEPS_KEY = "hold_steps"
 
-#: Info key: simulated nanoseconds advanced by this transition.
+
 SIM_TIME_NS_KEY = "sim_time_ns"
 
-#: Info key: whether this transition's action differed from the previous one.
+
 ACTION_SWITCHED_KEY = "action_switched"
 
 
@@ -114,8 +113,6 @@ class LatencyHoldEnv(gym.Wrapper[ObsType, ActType, ObsType, ActType]):
         result = self._pending_terminal
         self._pending_terminal = None
         return result
-
-    # -- lifecycle -----------------------------------------------------------
 
     def reset(self, **kwargs: Any) -> tuple[Any, dict[str, Any]]:
         """Reset and clear hold state."""
@@ -193,8 +190,6 @@ class LatencyHoldEnv(gym.Wrapper[ObsType, ActType, ObsType, ActType]):
 
         return obs, total_reward, terminated, truncated, step_info
 
-    # -- internals -----------------------------------------------------------
-
     def _switched(self, action: Any) -> bool:
         """Whether this action differs from the previously held one."""
         if not self._have_last_action:
@@ -247,9 +242,4 @@ class TransitionRecord:
         return self.hold_steps < self.requested_steps
 
 
-#: Concrete alias for downstream annotations.
-#:
-#: ``gym.Wrapper`` takes four type parameters but the concrete subclass
-#: resolves to two under the installed stubs, so callers reference the wrapper
-#: through this alias rather than repeating argument lists.
 LatencyHoldEnvT = LatencyHoldEnv[Any, Any]

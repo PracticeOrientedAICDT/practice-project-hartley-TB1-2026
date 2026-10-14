@@ -29,8 +29,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-#: Latency colour ramp, matching the video overlays so a panel, a card and a
-#: table row are the same condition everywhere on the page.
 LATENCY_COLOURS: dict[int, str] = {
     20: "#2ea44f",
     40: "#c9a227",
@@ -56,7 +54,6 @@ TASK_BLURBS: dict[str, str] = {
 }
 
 
-#: One latency condition as the page presents it.
 @dataclass(frozen=True)
 class Condition:
     latency_ms: int
@@ -67,7 +64,7 @@ class Condition:
     outcome: str
     video: str
     colour: str
-    #: The sweep's 200-episode mean for this condition, when available.
+
     sweep_mean: float | None
     failure_rate: float | None
     survival_s: float | None

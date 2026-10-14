@@ -30,7 +30,6 @@ import yaml
 
 from latency_ml.timing import NATIVE_DT_ENV_NS, NATIVE_SWEEP_GRID_NS
 
-#: The sentinel token recognised in YAML for an unresolved hardware parameter.
 TBD_TOKEN: Final = "TBD"
 
 
@@ -331,8 +330,7 @@ class TrainingConfig:
     clip_vloss: bool = True
     total_integration_steps: int = 2_000_000
     control_training_seeds: int = 10
-    #: Per-task discounting, overriding the physical defaults above. See
-    #: :class:`DiscountBasis` for why LunarLander overrides them.
+
     discount_overrides: dict[str, DiscountSpec] = field(default_factory=dict)
 
     @classmethod
@@ -400,8 +398,7 @@ class EvaluationConfig:
 
     control_episodes_per_seed: int = 200
     eval_seed_base: int = 10_000
-    #: Evaluation seeds are reused across every latency condition and training
-    #: seed, which makes the comparisons paired (`PLAN.md` section 19).
+
     paired_evaluation: bool = True
 
     @classmethod
@@ -447,10 +444,6 @@ class PolicyConfig:
         )
 
 
-#: The HFT fixed-model sweep from `PLAN.md` section 11.6. Unlike the control
-#: sweep this reaches the sub-millisecond regime, because in event-time replay
-#: latency is a timestamp shift rather than a held action, so the market stream
-#: resolves it.
 HFT_SWEEP_GRID_NS: tuple[int, ...] = (
     100,
     300,
@@ -472,13 +465,8 @@ HFT_SWEEP_GRID_NS: tuple[int, ...] = (
 class LatencyConfig:
     """Latency sweep configuration (`PLAN.md` section 5)."""
 
-    #: The section 5.3 sweep: integer timestep multiples giving five
-    #: independent native conditions. The section 5 target grid is in
-    #: :mod:`latency_ml.timing` and resolves to only two exact conditions
-    #: natively, so it is not used for control sweeps.
     sweep_grid_ns: tuple[int, ...] = NATIVE_SWEEP_GRID_NS
-    #: The HFT fixed-model sweep, which can resolve sub-millisecond latencies
-    #: because it shifts a timestamp rather than holding an action.
+
     hft_grid_ns: tuple[int, ...] = HFT_SWEEP_GRID_NS
 
     @classmethod

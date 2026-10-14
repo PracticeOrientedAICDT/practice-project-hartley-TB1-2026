@@ -109,9 +109,6 @@ from typing import Literal
 import numpy as np
 from numpy.typing import NDArray
 
-#: Two-sided significance level and power used unless a caller says otherwise.
-#: Chosen to match the convention already used when reading these results by
-#: hand, so a change in default cannot silently move a verdict.
 DEFAULT_ALPHA: float = 0.05
 DEFAULT_POWER: float = 0.80
 
@@ -122,9 +119,6 @@ class ComparisonError(ValueError):
     """Raised when two samples cannot form the comparison they are asked for."""
 
 
-#: Iteration ceiling and tolerances for the continued fraction below. These are
-#: the conventional values: the fraction converges to machine precision well
-#: inside 200 iterations for every argument reachable from a quantile query.
 _BETA_MAXITER = 200
 _BETA_EPS = 3.0e-16
 _BETA_TINY = 1.0e-300
@@ -275,8 +269,6 @@ def minimum_detectable_effect(
     df = d.size - 1
     sd = float(np.std(d, ddof=1))
     if sd == 0.0:
-        # Identical differences everywhere: any non-zero shift would have been
-        # visible, so the resolvable threshold is zero.
         return 0.0
     scale = _student_t(1.0 - alpha / 2.0, df) + _student_t(power, df)
     return scale * sd / math.sqrt(d.size)
@@ -307,10 +299,6 @@ def required_seeds(
         scale = _student_t(1.0 - alpha / 2.0, n - 1) + _student_t(power, n - 1)
         return scale * sd / math.sqrt(n) <= target_effect
 
-    # Coarse upward search, then walk down to the true minimum. The quantiles
-    # depend on n, so there is no closed-form solve, and stepping up in fixed
-    # increments overshoots -- the earlier version could return a seed count
-    # several larger than necessary while appearing to search for the minimum.
     n = max(2, math.ceil((2.0 * sd / target_effect) ** 2) + 1)
     for _ in range(256):
         if resolves(n):
@@ -392,8 +380,6 @@ def compare_paired(
     if se > 0.0:
         t_stat = mean_diff / se
     else:
-        # Zero residual spread: a constant nonzero difference is an infinite
-        # t-statistic, and identical samples have no direction to report.
         t_stat = 0.0 if mean_diff == 0.0 else math.copysign(math.inf, mean_diff)
     return PairedComparison(
         n=n,

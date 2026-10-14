@@ -26,16 +26,15 @@ import gymnasium as gym
 from latency_ml.envs.latency_env import LatencyHoldEnv, LatencyHoldEnvT
 from latency_ml.timing import NATIVE_DT_ENV_NS
 
-#: CartPole-v1 uses a fixed 0.02 s between state updates.
 CARTPOLE_DT_NS: int = 20_000_000
 
-#: LunarLander-v3 advances Box2D by 1/FPS with FPS = 50.
+
 LUNARLANDER_DT_NS: int = 20_000_000
 
-#: CartPole-v1 terminates an episode after 500 steps, i.e. 10 s simulated.
+
 CARTPOLE_MAX_EPISODE_STEPS: int = 500
 
-#: Gymnasium documents 200 as the LunarLander solved threshold.
+
 LUNARLANDER_SOLVED_SCORE: float = 200.0
 
 
@@ -43,7 +42,6 @@ class UnsupportedTaskError(ValueError):
     """Raised for a task this module does not know how to build."""
 
 
-#: Task name -> gymnasium id, observation dimension, action count.
 _TASK_SPECS: dict[str, dict[str, Any]] = {
     "cartpole": {
         "env_id": "CartPole-v1",
@@ -113,11 +111,11 @@ def probe_dt_env_ns(task: str) -> int:
     env = make_base_env(task)
     try:
         unrewrapped = env.unwrapped
-        # CartPole exposes the physics timestep as the ``tau`` class attribute.
+
         tau = getattr(unrewrapped, "tau", None)
         if tau is not None:
             return round(float(tau) * 1_000_000_000)
-        # LunarLander exposes FPS and steps Box2D by 1/FPS.
+
         fps = getattr(unrewrapped, "FPS", None)
         if fps is not None:
             return round(1_000_000_000 / float(fps))

@@ -45,10 +45,9 @@ from latency_ml.rl.ppo import RunCounts
 from latency_ml.seeding import Seeds
 from latency_ml.timing import ICDI
 
-#: Manifest version, bumped if the schema changes incompatibly.
 MANIFEST_VERSION: int = 1
 
-#: Default root for run directories, overridable per sweep.
+
 DEFAULT_RESULTS_ROOT: Path = Path("results")
 
 
@@ -326,13 +325,9 @@ class SweepPlan:
     latencies_ns: tuple[int, ...]
     train_seeds: tuple[int, ...]
     config_hash: str
-    #: Budget declared in the config file. Recorded separately from
-    #: :attr:`effective_integration_steps` because a ``--steps`` override makes
-    #: them differ, and the two are exactly what must not be conflated: the LR
-    #: schedule bug came from annealing against one while training against the
-    #: other.
+
     configured_integration_steps: int
-    #: Budget the runs will actually consume, after any override.
+
     effective_integration_steps: int
     cells: tuple[SweepCell, ...]
     created_at: str

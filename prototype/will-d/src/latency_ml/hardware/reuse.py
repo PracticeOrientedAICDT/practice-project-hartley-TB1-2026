@@ -34,35 +34,21 @@ from latency_ml.config import HardwareSpec
 from latency_ml.hardware.latency_model import explain_pending, is_available, predict_latency_ns
 from latency_ml.hardware.mac_counter import Architecture
 
-#: Tasks in the Phase 4 generality comparison, per PLAN.md section 15.2.
 TASKS: dict[str, dict[str, int]] = {
     "cartpole": {"obs_dim": 4, "n_actions": 2},
     "lunarlander": {"obs_dim": 8, "n_actions": 4},
 }
 
-#: Shared trunk width, fixed by PLAN.md section 15.2.
+
 SHARED_WIDTH: int = 128
 
-#: The frozen Phase 4 architecture, answering PLAN.md section 30 question 13.
-#:
-#: Decided: **whole-trunk sharing**. The entire ``128-128-128`` trunk is shared;
-#: per-task input projections and output heads stay outside it as adapters.
-#:
-#: The alternative considered and *not* taken was sharing only a matrix-
-#: multiplication engine while each task keeps its own depth. It was rejected on
-#: methodological grounds, not aesthetic ones: the result below is only
-#: interpretable as a statement about one specific architecture, and switching
-#: architectures because a measurement came out unfavourably would convert an
-#: experiment into a search. It is recorded here as a candidate for a later
-#: sensitivity experiment rather than quietly becoming the primary design.
+
 PRIMARY_ARCHITECTURE: str = "whole_trunk"
 
-#: Recorded alternative, not measured in this phase.
+
 ALTERNATE_ARCHITECTURE: str = "matmul_engine_only"
 
-#: Phase 4A is architecture-exact and needs no hardware model.
-#: Phase 4B converts those quantities into latency/resource estimates and is
-#: blocked until the Hartley model is frozen.
+
 PHASE_4A_EXACT: tuple[str, ...] = (
     "parameter counts",
     "distinct accelerator MACs",
@@ -72,7 +58,7 @@ PHASE_4A_EXACT: tuple[str, ...] = (
     "adapter/core decomposition",
 )
 
-#: Hardware-model parameters Phase 4B requires before it can produce a number.
+
 PHASE_4B_REQUIRES: tuple[str, ...] = (
     "precision",
     "throughput / MAC rate",
@@ -221,7 +207,6 @@ def build_report(spec: HardwareSpec | None = None) -> ReuseReport:
     for task, shape in TASKS.items():
         obs, acts = shape["obs_dim"], shape["n_actions"]
 
-        # Topology A: one dedicated 2x128 unit per task. Nothing is reused.
         dedicated = Architecture(widths=(obs, w, w, acts))
         report.task_specific.append(
             TaskDesign(
@@ -237,14 +222,6 @@ def build_report(spec: HardwareSpec | None = None) -> ReuseReport:
             )
         )
 
-        # Topology B: the two 128x128 matrices live in the shared accelerator,
-        # built once; the input projection and output head stay in software.
-        #
-        # The adapter cost is computed from its own two projections, NOT by
-        # subtracting the trunk from the full network. Those are not nested: in
-        # the dedicated design the first matrix is obs->128, whereas the shared
-        # core's first matrix is 128->128, so the trunk is not a subset of the
-        # full net and subtracting it yields a negative adapter cost.
         trunk = Architecture(widths=(w, w, w))
         in_adapter = Architecture(widths=(obs, w))
         out_adapter = Architecture(widths=(w, acts))

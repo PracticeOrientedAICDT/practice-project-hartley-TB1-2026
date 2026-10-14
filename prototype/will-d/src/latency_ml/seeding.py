@@ -93,7 +93,7 @@ def seed_everything(seeds: Seeds, deterministic_torch: bool = True) -> None:
 
     if deterministic_torch:
         torch.use_deterministic_algorithms(True, warn_only=True)
-        # Needed for deterministic CUDA reductions; harmless on CPU.
+
         os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 

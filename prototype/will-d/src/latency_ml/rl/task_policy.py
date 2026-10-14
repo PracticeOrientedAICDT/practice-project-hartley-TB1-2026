@@ -78,8 +78,6 @@ class TaskPolicy(Protocol):
     obs_dim: int
     n_actions: int
 
-    #: Class name of the nonlinearity, recorded in manifests and protocol
-    #: fingerprints so a result identifies its own model.
     activation_name: str
 
     def parameter_groups(self) -> list[ParameterGroup]:

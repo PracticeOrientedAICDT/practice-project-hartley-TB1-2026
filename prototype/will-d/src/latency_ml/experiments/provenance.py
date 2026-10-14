@@ -45,10 +45,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-#: Counts that must be strictly positive on a completed cell. A zero in any of
-#: these is treated as "absent", never as "measured as zero", except for
-#: ``wall_time_s`` which is handled separately because it shares the failure mode
-#: with the rest but has a different justification (see module docstring).
 REQUIRED_POSITIVE_COUNTS = (
     "integration_steps",
     "decision_transitions",
@@ -74,9 +70,7 @@ class CellReport:
     run_id: str
     ok: bool
     problems: tuple[str, ...] = ()
-    #: Accepted-by-request absences. Recorded so a caller can see what was waived,
-    #: but never counted as failures -- otherwise asking for tolerance would still
-    #: report the cell as broken and the flag would be useless.
+
     notes: tuple[str, ...] = ()
     fingerprint: str | None = None
     wall_time_s: float | None = None
@@ -194,9 +188,6 @@ def validate_completed_cell(
     if counts is None:
         problems.append("counts is absent")
     elif not isinstance(counts, dict):
-        # A malformed manifest is a finding, not an exception. This validator runs
-        # over whole directories during an audit, and one unparseable field must not
-        # abort the sweep it is checking.
         problems.append(f"counts is {type(counts).__name__}, not an object")
         counts = None
     if counts is not None:
@@ -310,12 +301,6 @@ def verify_sweep(
             f"{failed[0].run_id}: {failed[0].problems[0] if failed[0].problems else ''}"
         )
 
-    # Fingerprints are compared within a task, never across tasks.
-    #
-    # A run id is <sweep>/<task>/<ns>ns/seed<N> and TaskProtocol is task-specific,
-    # so two different tasks legitimately carry different fingerprints. Comparing
-    # them as though they ought to match would report every multi-task results
-    # directory as broken.
     by_task: dict[str, set[str]] = {}
     for cell in cells:
         parts = cell.run_id.split("/")
@@ -329,8 +314,6 @@ def verify_sweep(
                 f"cells that ran different protocols are not one comparison"
             )
 
-    # The evaluation artifact lives at the sweep level, so it is checked per sweep
-    # rather than at the root. Sweep ids are the first component of a run id.
     if require_evaluation:
         sweeps = {cell.run_id.split("/")[0] for cell in cells}
         for sweep in sorted(sweeps):

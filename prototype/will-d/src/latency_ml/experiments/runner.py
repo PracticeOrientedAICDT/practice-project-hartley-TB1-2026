@@ -56,11 +56,9 @@ from latency_ml.rl.ppo import CurvePoint, PPOTrainer, RunCounts
 from latency_ml.seeding import Seeds, derive_seed, seed_everything
 from latency_ml.timing import derive_icdi
 
-#: Torch intra-op threads per worker, so workers x this stays within the core
-#: budget instead of oversubscribing.
 DEFAULT_WORKER_THREADS: int = 2
 
-#: Default workers. Modest because each holds a torch context and 4 envs.
+
 DEFAULT_MAX_WORKERS: int = 4
 
 
@@ -162,8 +160,6 @@ def run_cell(
         icdi=derive_icdi(cell.latency_ns, dt_env_ns),
         dt_env_ns=dt_env_ns,
         started_at=utc_now(),
-        # Recorded so a later shared-vs-dedicated comparison can verify parity
-        # from the artifacts rather than from trust in the code.
         extra={
             "task_protocol": task_protocol(
                 config, config.task, effective_integration_steps=total_integration_steps
@@ -174,15 +170,9 @@ def run_cell(
 
     try:
         obs_dim, n_actions = probe_env_dims(config.task)
-        # Seed *before* the policy is constructed, not merely before training.
-        # Weight initialisation draws from the global torch RNG, so a policy built
-        # from whatever state the process happened to be in gets initial weights
-        # that its seed does not determine -- and re-running the cell would not
-        # reproduce them. The trainer seeds for the rollout stream; this line is
-        # what makes the initial network itself reproducible.
+
         seed_everything(seeds)
-        # One entry in the task map: a dedicated cell. The shared-trunk arm is the
-        # same trainer with several, so nothing about this path is specialised.
+
         policy = build_control_policy(config.task)
         trainer = PPOTrainer(
             config,
@@ -205,9 +195,7 @@ def run_cell(
         counts = result.counts[config.task]
         if result.curve:
             _write_curve(rid, cell.latency_ns, cell.train_seed, result.curve, root)
-        # Save weights alongside the manifest so the cell can be evaluated
-        # without retraining. Written before the manifest is marked complete,
-        # so a completed manifest always implies a readable checkpoint.
+
         checkpoint = root / rid / "policy.pt"
         policy.save(checkpoint)
     except BaseException as error:

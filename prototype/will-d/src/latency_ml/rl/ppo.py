@@ -223,11 +223,6 @@ class PPOTrainer:
             )
             self.seeds = {t: base.for_latency(latency_ns) for t in self.tasks}
 
-        # Seed *before* the caller constructs its policies. Weight initialisation
-        # draws from the global torch RNG, so seeding afterwards would leave the
-        # initial weights dependent on whatever the process happened to do
-        # beforehand. In a sweep that silently gives every cell a different network
-        # even at a fixed seed, and re-running a cell would not reproduce it.
         seed_everything(self.seeds[self.tasks[0]])
 
         self.initial_lr = config.training.learning_rate
@@ -309,8 +304,6 @@ class PPOTrainer:
         planned = self.planned_iterations(budget)
         iterations = max(planned.values())
 
-        # Re-seed so the rollout/optimisation stream does not depend on how much
-        # RNG the policy initialisation consumed above.
         seed_everything(self.seeds[self.tasks[0]])
 
         current = {t: self._initial_obs(t) for t in self.tasks}
@@ -349,9 +342,6 @@ class PPOTrainer:
                 env.close()
         wall_time = time.perf_counter() - start
 
-        # Recorded on each task's counts as well as on the result. The counts are
-        # what reaches the manifest, and a manifest reporting that a cell took no
-        # time is worse than one reporting nothing -- it looks measured.
         for task in self.tasks:
             self.states[task].counts.wall_time_s = wall_time
 
@@ -415,10 +405,6 @@ class PPOTrainer:
         buffer = RolloutBuffer(cfg.steps_per_decision, num_envs, state.obs_shape)
         for _ in range(cfg.steps_per_decision):
             with torch.no_grad():
-                # action_and_value samples the action and returns its
-                # log-probability under that same distribution; the sampling must
-                # not be repeated separately or the two would come from different
-                # distributions.
                 actions, log_probs, value = policy.action_and_value(current_obs)
 
             next_obs_list: list[np.ndarray] = []
@@ -431,22 +417,14 @@ class PPOTrainer:
             for i, env in enumerate(envs):
                 obs_i, reward, terminated, truncated, info = env.step(int(actions[i].item()))
                 rewards[i] = reward
-                # Termination and truncation are *not* the same event. A
-                # terminated state is genuinely terminal, so its value is zero and
-                # the advantage must not bootstrap. A truncated one is an
-                # artificial time limit: the state is perfectly valid, so the
-                # value must be bootstrapped from it. Treating them alike biases
-                # the value target precisely for the outcome whose frequency
-                # changes with latency.
+
                 terminateds[i] = float(terminated)
                 truncateds[i] = float(truncated)
                 durations[i] = float(info.get(HOLD_STEPS_KEY, state.counts.action_steps))
-                # Kept before the reset: this is s_final, and resetting discards it.
+
                 final_obs_list.append(np.asarray(obs_i, dtype=np.float32).copy())
                 next_obs_list.append(obs_i)
 
-            # One batched forward pass gives V(s_final) for every env, needed for
-            # the time-limit bootstrap and wasted otherwise.
             with torch.no_grad():
                 _, final_values = policy(
                     torch.as_tensor(
@@ -512,10 +490,6 @@ class PPOTrainer:
 
                 log_ratio = new_log_probs - batch.log_probs[mb]
 
-                # The loss is computed *with* autograd tracking: the gradient must
-                # flow through the unclipped surrogate branch. Computing it inside
-                # no_grad would detach the objective entirely and the optimiser
-                # would receive no gradient.
                 logratio2 = log_ratio.clamp(1 - cfg.clip_coef, 1 + cfg.clip_coef)
                 loss1 = -log_ratio * batch.advantages[mb]
                 loss2 = -logratio2 * batch.advantages[mb]

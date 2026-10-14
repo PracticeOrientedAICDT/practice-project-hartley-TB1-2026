@@ -12,11 +12,10 @@ from latency_ml.envs.factory import (
     LUNARLANDER_SOLVED_SCORE,
 )
 
-#: CartPole observation layout: [cart_position, cart_velocity, pole_angle, pole_velocity].
 CARTPOLE_THETA_INDEX = 2
 CARTPOLE_X_INDEX = 0
 
-#: LunarLander observation layout: [x, y, vx, vy, angle, angular_velocity, leg1, leg2].
+
 LANDER_ANGLE_INDEX = 4
 LANDER_X_INDEX = 0
 
@@ -113,8 +112,7 @@ def _ci95(values: list[float]) -> float:
     n = len(values)
     if n < 2:
         return 0.0
-    # 1.96 approximates the normal 97.5th percentile; at 200 episodes per
-    # seed the normal approximation is well justified.
+
     spread = float(pstdev(values))
     result = 1.96 * spread / (n**0.5)
     return float(result)

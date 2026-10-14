@@ -64,14 +64,13 @@ from numpy.typing import NDArray
 
 FloatVec = NDArray[np.float64]
 
-#: Normalised state displacement that defines the timescale. One unit, i.e. the
-#: state has moved by its own initial magnitude.
+
 DEFAULT_THRESHOLD: float = 1.0
 
-#: Reset seeds aggregated by the median.
+
 DEFAULT_SEEDS: tuple[int, ...] = (0, 1, 2, 3, 4)
 
-#: Safety bound. No task here reaches it; a hit means the metric failed.
+
 MAX_STEPS: int = 2000
 
 _ENV_ID: dict[str, str] = {"cartpole": "CartPole-v1", "lunarlander": "LunarLander-v3"}

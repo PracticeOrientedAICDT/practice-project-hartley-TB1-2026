@@ -51,7 +51,6 @@ from latency_ml.rl.task_policy import TaskPolicy
 from latency_ml.seeding import seed_env
 from latency_ml.timing import derive_icdi
 
-#: Observation indices per task, for the recorder.
 _TASK_INDICES: dict[str, tuple[int, int]] = {
     "cartpole": (CARTPOLE_THETA_INDEX, CARTPOLE_X_INDEX),
     "lunarlander": (LANDER_ANGLE_INDEX, LANDER_X_INDEX),
@@ -107,8 +106,7 @@ def run_episode(
             action = greedy_action(policy, np.asarray(obs))
             obs, reward, terminated, truncated, info = env.step(action)
             recorder.accumulate_reward(float(reward))
-            # Count the integration steps this hold actually covered, not 1.
-            # One wrapper step is one decision spanning N integration steps.
+
             recorder.count_step(int(info.get(HOLD_STEPS_KEY, 1)))
             recorder.count_decision(bool(info.get(ACTION_SWITCHED_KEY, False)))
             recorder.observe(np.asarray(obs))

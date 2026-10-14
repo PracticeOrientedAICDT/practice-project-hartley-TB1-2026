@@ -30,8 +30,6 @@ from typing import Any
 from latency_ml.config import DiscountSpec, ProjectConfig
 from latency_ml.models.activations import ACTIVATION_NAME
 
-#: Bumped whenever the fingerprint's *content* changes, so an old manifest
-#: cannot be silently compared against a new definition.
 FINGERPRINT_VERSION = 2
 
 
@@ -140,14 +138,10 @@ class TaskProtocol:
         return sorted(k for k in mine if mine[k] != theirs.get(k))
 
 
-#: Identifiers for the two implementation choices that are not numeric
-#: hyperparameters but still define the experiment.
 SEED_MAPPING_ID = "derive_cell_seeds:train_seed_verbatim+latency_env_mix"
 ACTION_HOLD_ID = "icdi_action_steps:semi_markov_duration_aware"
 
-#: The anneal is denominated in simulated time, not optimiser-update count, so
-#: every latency condition traverses the same schedule at equal simulated
-#: progress. Recorded because "learning rate" alone does not pin this down.
+
 LR_SCHEDULE_BASIS = "simulated_time_fraction_of_effective_budget"
 
 

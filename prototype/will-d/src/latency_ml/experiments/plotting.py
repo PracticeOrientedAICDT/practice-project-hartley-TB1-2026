@@ -29,7 +29,6 @@ import matplotlib.pyplot as plt
 
 from latency_ml.timing import Resolution
 
-#: CartPole's return ceiling, from the 500-step episode limit.
 CARTPOLE_RETURN_CEILING = 500.0
 
 
@@ -39,12 +38,6 @@ def _load_aggregates(path: str | Path) -> list[dict[str, Any]]:
     return list(payload["latency_response"])
 
 
-#: Per-task maximum episode return, used only to draw a reference line.
-#:
-#: LunarLander's is 200 (Gymnasium's own ``reward_threshold``), so a curve
-#: topping out near 278 *exceeds* it through averaging over episodes. Drawn
-#: because the curve's scale is otherwise uninterpretable -- without a ceiling a
-#: reader cannot tell "near maximum" from "half way".
 TASK_RETURN_CEILING: dict[str, float] = {
     "cartpole": CARTPOLE_RETURN_CEILING,
     "lunarlander": 200.0,
@@ -96,9 +89,6 @@ def plot_latency_response(
         va="bottom",
     )
 
-    # Seed count derived from the data rather than written into the label. The
-    # previous "mean across 10 seeds" was hardcoded, so plotting a sweep with a
-    # different replicate count would have mislabelled the error bars.
     seed_counts = {a.get("n_seeds") for a in points if a.get("n_seeds") is not None}
     seed_label = (
         f"mean across {seed_counts.pop()} seeds ±1 sd"
@@ -118,10 +108,6 @@ def plot_latency_response(
     )
 
     for x, a in zip(xs, points, strict=True):
-        # Labelled "hold xN", not "N". This is the ICDI action-hold factor -- how
-        # many environment actions are held per decision -- and a bare "N=" reads
-        # as a sample size, which is the opposite of what it means and would be
-        # especially misleading beside an error bar derived from seed spread.
         n = a["action_steps"]
         ax.annotate(
             f"hold x{n}",
@@ -133,23 +119,6 @@ def plot_latency_response(
             color="#444444",
         )
 
-    # The transition is derived from the data, not written into the function.
-    #
-    # This annotation was hardcoded to "first deviation at 80 ms", which was true
-    # of the trainer-v1 2M sweep and false of the 4M definitive control, where
-    # 80 ms sits at 498.2 +- 2.0 and the drop is at 100 ms. Reusing the function
-    # for the definitive data therefore printed a stale conclusion under a fresh
-    # title -- the figure's data and its annotation disagreed. Deriving it makes
-    # that class of error impossible.
-    #
-    # "At ceiling" means the mean is within one seed standard deviation of the best
-    # mean, floored at 1.0 so a perfectly reproducible point still has a non-zero
-    # band. The seed spread is the right yardstick because the trained policy is
-    # the unit of analysis: at 40 ms one seed of ten returns 443.9 and nine return
-    # exactly 500.0, giving a mean of 494.4 with sd 16.8. A fixed tolerance would
-    # call that a deviation, and it is not one -- it is seed heterogeneity. Using
-    # the sweep's own spread means the criterion cannot manufacture a transition
-    # out of a single lagging replicate.
     top = max(a["mean_return"] for a in points)
     deviation_floor = 1.0
 
@@ -254,15 +223,8 @@ def plot_training_curves(
         ax.axhline(ceiling, color="crimson", linestyle="--", linewidth=1.0, zorder=2)
     ax.set_xlabel("environment integration steps (millions) — equal simulated time")
     ax.set_ylabel("mean greedy return")
-    # Headroom above the task's own ceiling, not CartPole's 500. Scaled to the
-    # task being plotted, so a LunarLander curve is not framed against a limit it
-    # could never reach.
+
     if ceiling is not None:
-        # Headroom set by the observed data, not the ceiling. LunarLander's
-        # per-episode ceiling is 200 but the *episode-averaged* curve settles
-        # near 265, so a ceiling-scaled axis clips the 20-60 ms means entirely.
-        # Scaling on the ceiling would hide the plateau this figure exists to
-        # show; scaling on the observed maximum keeps both visible.
         observed_max = max(
             point["mean_return"] for runs in grouped.values() for run in runs for point in run
         )

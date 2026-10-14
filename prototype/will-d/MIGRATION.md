@@ -27,28 +27,56 @@ No `tests/` — per request this folder ships code + docs only.
   (the GitHub repo, not the GitLab `hartley-prototype`).
 - PR: draft, blank body, base `dev` (per repo rule `feature/* → dev`).
 
-## What was copied (50 files, ~0.8 MB)
+## What was copied (46 files)
 
-`src/latency_ml/` (packages: `analysis/`, `envs/`, `experiments/`,
-`hardware/`, `models/`, `rl/`, plus `cli.py`, `config.py`, `seeding.py`,
-`timing.py`), `configs/` (`base.yaml`, `cartpole.yaml`, `lunarlander.yaml`),
-`scripts/` (`build_site.py`, `render_videos.py`), `docs/ENVIRONMENT.md`,
-`PROTOCOL.md`, `RESULTS.md`, `README.md`, `Makefile`, `pyproject.toml`,
-`uv.lock`, `.python-version`, `.gitignore`.
+`src/latency_ml/` (packages: `analysis/` (`parity`, `power`, `timescale`),
+`envs/`, `experiments/` (`evaluate`, `manifest`, `plotting`, `provenance`,
+`runner`), `hardware/`, `models/` (`activations`, `architectures`,
+`chip_compat`), `rl/`, plus `cli.py`, `config.py`, `seeding.py`, `timing.py`),
+`configs/` (`base.yaml`, `cartpole.yaml`, `lunarlander.yaml`), `scripts/`
+(`build_site.py`, `render_videos.py`), `docs/ENVIRONMENT.md`, `PROTOCOL.md`,
+`RESULTS.md`, `README.md`, `Makefile`, `pyproject.toml`, `uv.lock`,
+`.python-version`, `.gitignore`.
 
-Full manifest with sha256: `SHA256SUMS` (50 lines).
+Full manifest with sha256: `SHA256SUMS` (46 lines).
 
 ## What was removed after import
 
-- `src/latency_ml/finance/` (LOB/market/replay/target/selectivity/stage_a —
-  14 files) and `configs/finance.yaml`, `configs/finance_v2b.yaml`,
-  `configs/finance_v2b_amzn.yaml`. Out of scope for this prototype.
-  `REPRODUCE.sh` excludes them so a rerun keeps this state.
-- Left as-is (verbatim, non-functional without the package): finance
-  references in `cli.py` (finance subcommands/imports), `config.py`
-  (`FinanceConfig`), and the `finance:` block in `configs/base.yaml`.
-  `PROTOCOL.md`/`RESULTS.md` still document the finance (V2B/L1) findings
-  as the historical record.
+- Finance (out of scope): `src/latency_ml/finance/` (14 files) and
+  `configs/finance.yaml`, `configs/finance_v2b.yaml`,
+  `configs/finance_v2b_amzn.yaml`.
+- Phase 4 shared-trunk scaffolding (out of scope):
+  `src/latency_ml/models/shared_trunk.py`,
+  `src/latency_ml/experiments/shared_runner.py`,
+  `src/latency_ml/analysis/shared_analysis.py`,
+  `src/latency_ml/analysis/transfer_init.py`.
+- `REPRODUCE.sh` excludes all of the above, so a rerun keeps this state.
+- Kept deliberately: `analysis/parity.py` (its prose is Phase-4-framed but
+  the kept control sweep `experiments/runner.py` imports `task_protocol`
+  from it); `analysis/power.py` and `analysis/timescale.py` (generic
+  paired-verdict stats and control-task dynamics, not phase-specific).
+- Left as-is (verbatim, partially non-functional without the removed
+  packages): finance/shared-trunk references in `cli.py` (subcommands and
+  imports), `config.py` (`FinanceConfig`), `models/__init__.py`
+  (`build_shared_trunk*`), `rl/task_policy.py` (lazy shared-trunk facade),
+  `models/architectures.py` (`build_shared_trunk`), and the `finance:` block
+  in `configs/base.yaml`. `scripts/render_videos.py` also imports the
+  removed shared modules.
+  `PROTOCOL.md`/`RESULTS.md` still document the finance (V2B/L1) and Phase 4
+  findings as the historical record.
+
+## Comment stripping
+
+All `#` comments were stripped from the imported `.py` files
+(token-based, so `#` inside strings is untouched). Kept: module/function
+docstrings, shebangs, encoding cookies, and tool directives (`noqa`,
+`type:`, `fmt:`, `isort:`, `pragma:`). After stripping, the tree is
+canonicalized with the repo toolchain (`ruff check --fix`,
+`ruff format` — this also re-sorted import blocks that the source repo's
+isort scope had grouped differently). `REPRODUCE.sh` performs the strip and
+the canonicalization, so reruns are byte-identical (verified: consecutive
+runs yield identical `SHA256SUMS`). `Makefile` help comments are functional
+(the `help` target greps them) and were left alone.
 
 ## What was deliberately excluded
 

@@ -22,13 +22,9 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-#: Native Gymnasium integration timestep for CartPole-v1 and LunarLander-v3.
-#: CartPole sets ``tau = 0.02``; LunarLander sets ``FPS = 50`` and steps Box2D
-#: by ``1/FPS``. Both give 20 ms.
 NATIVE_DT_ENV_NS: int = 20_000_000
 
-#: Resolution timestep for the optional high-resolution control extension
-#: (`PLAN.md` section 8). Not used by the native environments.
+
 HIGH_RES_DT_ENV_NS: int = 1_000_000
 
 
@@ -41,16 +37,10 @@ class Resolution(Enum):
     and plotting.
     """
 
-    #: ``effective_ns == requested_ns``. The condition is measured as asked.
     EXACT = "exact"
 
-    #: The request was representable but is not a multiple of the timestep, so
-    #: it was rounded up. E.g. 30 ms against a 20 ms timestep is realised as
-    #: 40 ms. Not independent of the condition it quantises onto.
     QUANTIZED_UP = "quantized_up"
 
-    #: ``requested_ns < dt_env_ns``. The simulator cannot represent this
-    #: latency at all. Must never be plotted as an independent measurement.
     UNRESOLVED = "unresolved"
 
 
@@ -115,8 +105,6 @@ def derive_icdi(latency_ns: int, dt_env_ns: int = NATIVE_DT_ENV_NS) -> ICDI:
     if dt_env_ns <= 0:
         raise ValueError(f"dt_env_ns must be positive, got {dt_env_ns}")
 
-    # Ceiling division on integers: avoids the float rounding that would make
-    # an exact multiple of the timestep unpredictably round down.
     action_steps = -(-latency_ns // dt_env_ns)
     action_steps = max(1, action_steps)
     effective_ns = action_steps * dt_env_ns
@@ -136,41 +124,31 @@ def derive_icdi(latency_ns: int, dt_env_ns: int = NATIVE_DT_ENV_NS) -> ICDI:
     )
 
 
-#: The Version 1 control sweep from `PLAN.md` section 5.3: integer action-step
-#: multiples of the 20 ms native timestep, giving an interpretable 1-5 held-step
-#: sweep with no timing quantisation.
-#:
-#: Note this is a *different* set from :data:`LATENCY_GRID_NS`. The section 5
-#: target grid contains 30 ms and 50 ms, which quantize upward against a 20 ms
-#: timestep, and omits 40/60/80 ms entirely. Against the native timestep it
-#: yields only two exact conditions (20 ms and 100 ms), which is too few to
-#: draw a latency-response curve. Use this grid for the control sweeps.
 NATIVE_SWEEP_GRID_NS: tuple[int, ...] = (
-    20_000_000,  # 20 ms -> N=1
-    40_000_000,  # 40 ms -> N=2
-    60_000_000,  # 60 ms -> N=3
-    80_000_000,  # 80 ms -> N=4
-    100_000_000,  # 100 ms -> N=5
+    20_000_000,
+    40_000_000,
+    60_000_000,
+    80_000_000,
+    100_000_000,
 )
 
-#: The target sweep from `PLAN.md` section 5: 100 ns to 100 ms, denser at the
-#: fast end. Stored in nanoseconds.
+
 LATENCY_GRID_NS: tuple[int, ...] = (
-    100,  # 100 ns
+    100,
     300,
-    1_000,  # 1 us
+    1_000,
     3_000,
-    10_000,  # 10 us
+    10_000,
     30_000,
-    100_000,  # 100 us
+    100_000,
     300_000,
-    1_000_000,  # 1 ms
+    1_000_000,
     3_000_000,
-    10_000_000,  # 10 ms
-    20_000_000,  # 20 ms == one native timestep
+    10_000_000,
+    20_000_000,
     30_000_000,
     50_000_000,
-    100_000_000,  # 100 ms
+    100_000_000,
 )
 
 

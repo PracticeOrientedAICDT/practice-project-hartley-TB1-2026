@@ -60,7 +60,7 @@ def compute_time_ns(n_macs: int, peak_macs_per_second: int | Unresolved) -> int:
     if n_macs < 0:
         raise ValueError(f"n_macs must be non-negative, got {n_macs}")
     throughput = _require(peak_macs_per_second, "peak_macs_per_second")
-    # Integer ceiling division: exact at any magnitude, unlike float division.
+
     return math.ceil(n_macs * 1_000_000_000 / throughput)
 
 

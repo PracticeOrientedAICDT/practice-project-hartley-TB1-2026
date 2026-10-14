@@ -37,10 +37,10 @@ from latency_ml.models.chip_compat import DEFAULT_CONSTRAINTS, ChipConstraints, 
 if TYPE_CHECKING:
     from latency_ml.rl.task_policy import ParameterGroup
 
-#: Hidden widths for the control policy, `PLAN.md` section 6.2.
+
 CONTROL_HIDDEN: tuple[int, ...] = (128, 128)
 
-#: Hidden widths for the HFT capacity comparison, section 11.5.
+
 HFT_SMALL_HIDDEN: tuple[int, ...] = (32, 32)
 HFT_LARGE_HIDDEN: tuple[int, ...] = (128, 128)
 
@@ -96,7 +96,6 @@ class MLPPolicy(nn.Module):
         layers.append(nn.Linear(widths[-2], widths[-1]))
         self.actor = nn.Sequential(*layers)
 
-        # The critic shares the trunk but is not part of the policy path.
         value_widths = (obs_dim, *hidden, 1)
         value_layers: list[nn.Module] = []
         for fan_in, fan_out in itertools.pairwise(value_widths[:-1]):

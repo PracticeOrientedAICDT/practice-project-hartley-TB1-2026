@@ -91,28 +91,6 @@ def _cmd_shared_trunk(args: argparse.Namespace) -> int:
     print(f"  per-task budget: {budget:,} integration steps (consumed once per task)")
     print(f"  episodes/task  : {args.episodes or config.evaluation.control_episodes_per_seed}")
 
-    # Resolved once, before any cell runs. The source must not depend on the
-    # cell: resolving it per cell from the cell's own latency and seed would
-    # quietly give each condition a different starting policy, which is the one
-    # thing the pre-registration forbids. "default" expands to the frozen source.
-    #
-    # B3: bare `--init-source` used to expand to transfer_init.DEFAULT_SOURCE_CELL,
-    # which is a frozen *v1* checkpoint trained under an unbounded ReLU. In this
-    # repository that is not a source at all.
-    #
-    # The transfer reproduces a source's post-activation hidden layer, so it is
-    # only meaningful when the nonlinearities match. A ReLU-trained source dropped
-    # into a bounded trunk does not yield the same representation -- verified
-    # directly -- so the arm would have been measuring something that was not the
-    # intended intervention, while reporting itself as a clean bit-exact transfer.
-    # A silent default that performs a semantically void experiment is the same
-    # class of defect as a hold band that quietly collapses to a no-op.
-    #
-    # So there is no default, and `--init-source` now requires its argument at the
-    # parser level. The branch below catches the one remaining way to ask for a
-    # default by name -- typing the word -- because that otherwise fails with a bare
-    # "checkpoint not found: default", which explains nothing. The frozen cell
-    # itself stays available to tests, which is what it is for.
     init_source: Path | None = None
     if args.init_source is not None:
         if args.init_source == "default":
@@ -222,9 +200,6 @@ def _cmd_historical(args: argparse.Namespace) -> int:
                 {
                     "source": str(args.data),
                     "n_events": len(stream),
-                    # Provenance: every latency point below is a replay of this
-                    # exact event stream, so a reader can confirm that from the
-                    # artifact rather than taking it on trust.
                     "stream_sha256": stream_digest(stream),
                     "diagnostics": diag,
                     "points": [
@@ -815,9 +790,6 @@ def _cmd_diagnose_target(args: argparse.Namespace) -> int:
             return 2
         diagnostics = []
         for session, role in zip(sessions, roles, strict=True):
-            # Depth is always explicit. load_session with no level reads every level in
-            # the filename -- 1.4 GB for SPY_50 -- and this diagnostic only reads the
-            # touch.
             stream = load_session(session, levels=args.levels)
             diagnostics.append(
                 diagnose_wall_clock_session(
@@ -862,9 +834,6 @@ def _cmd_diagnose_target(args: argparse.Namespace) -> int:
 
     event_diagnostics = []
     for session in sessions:
-        # Depth is always explicit. load_session with no level reads every level in
-        # the filename -- 1.4 GB for SPY_50 -- and this diagnostic only reads the
-        # touch.
         stream = load_session(session, levels=args.levels)
         event_diagnostics.append(
             diagnose_session(
@@ -1139,7 +1108,7 @@ def _cmd_stage_a(args: argparse.Namespace) -> int:
             f"frozen arm {args.arm}: H={target.horizon_ms:g} ms, k={target.band_ticks} "
             "granules, aggressive touch crossing"
         )
-    # E6: the configured horizon now reaches training rather than coinciding with it.
+
     policy, trading_cfg, normaliser, fit = train_policy(
         stream,
         model=args.model,
@@ -1225,13 +1194,12 @@ def _cmd_stage_a(args: argparse.Namespace) -> int:
         )
 
         ceiling = load_ceiling(args.oracle_ref)
-        # Verified before any ratio is printed. A ceiling from different bytes would
-        # make every number below meaningless while looking entirely normal.
+
         if target is not None:
             from latency_ml.finance.oracle_ref import verify_against
 
             verify_against(ceiling, stream, target)
-        # Keyed by requested delay, which is what the ceiling is indexed by.
+
         policy_values = {int(p.delay_events): float(p.mean_pnl) for p in points}
         ratio_rows = ratio_row(ceiling, policy_values)
         print()
@@ -1244,8 +1212,6 @@ def _cmd_stage_a(args: argparse.Namespace) -> int:
         "n_events": len(stream),
         "eval_start": eval_start,
         "n_evaluated": len(stream) - eval_start,
-        # Provenance: the digest the oracle ceiling is checked against, recorded so a
-        # result can be tied to the exact bytes it was computed on without re-running.
         "stream_digest": stream_digest(stream),
         "target": target.to_dict() if target is not None else None,
         "latency_grid_ns": list(grid_ns) if grid_ns else None,
@@ -1319,9 +1285,6 @@ def _cmd_mechanism(args: argparse.Namespace) -> int:
         }
         print(f"{name:>22}" + "".join(f"{p.mean_pnl:>9.4f}" for p in points))
 
-    # The decoupled control is judged on the flatness of its raw means, not on
-    # decay_fraction: its baseline is negative, so there is no opportunity to
-    # lose and a normalised ratio would be meaningless.
     decoupled = results["conditions"]["control_decoupled"]["mean_pnl"]
     decoupled_flat = (max(decoupled) - min(decoupled)) < 0.01
     short = abs(results["conditions"]["short_lived"]["decay_fraction"])
@@ -1421,10 +1384,6 @@ def _cmd_sweep(args: argparse.Namespace) -> int:
     )
     failed = [o for o in outcomes if o.status == "failed"]
 
-    # Per-cell provenance, checked here because this is the last moment the sweep
-    # knows what it just produced. The evaluation artifact is deliberately NOT
-    # required yet: nothing has been evaluated at this point, and a check that
-    # fires on the normal ordering of commands is a check people learn to skip.
     report = verify_sweep(
         args.root,
         args.sweep_id,
@@ -1552,21 +1511,10 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         payload["cross_latency"] = cross_summary
         payload["cross_cells"] = [c.to_dict() for c in cells]
 
-    # Written to disk unconditionally, not only under --json.
-    #
-    # `plot latency-response` reads an evaluation file from disk, and a sweep's
-    # aggregate is the artefact a result gets compared against -- including
-    # against the previous version. Printing it and letting the operator redirect
-    # stdout means the file exists only if someone remembered, and a result that
-    # depends on that is not reproducible from the sweep.
     out = args.out or (args.root / args.sweep_id / "evaluation.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2, sort_keys=True))
 
-    # Now the evaluation artifact exists, so the sweep-level requirement becomes
-    # meaningful. Checked here rather than only under `verify` because this is the
-    # point at which a sweep first becomes quotable, and a sweep that silently
-    # produced nothing evaluable is exactly what this catches.
     if out == (args.root / args.sweep_id / "evaluation.json"):
         report = verify_sweep(
             args.root,

@@ -58,17 +58,14 @@ class RolloutBuffer:
         self.log_probs = torch.zeros(shape, dtype=torch.float32)
         self.rewards = torch.zeros(shape, dtype=torch.float32)
         self.dones = torch.zeros(shape, dtype=torch.float32)
-        #: True *termination* only. Truncation is recorded separately, because a
-        #: time limit must still bootstrap while a terminal state must not.
+
         self.dones = torch.zeros(shape, dtype=torch.float32)
-        #: 1.0 where the episode hit a time limit rather than a terminal state.
+
         self.truncations = torch.zeros(shape, dtype=torch.float32)
-        #: V(s_final) for truncated transitions, captured before the reset. This
-        #: is the value the time-limit bootstrap needs; without it the rollout
-        #: would bootstrap from the *new* episode's first observation.
+
         self.trunc_values = torch.zeros(shape, dtype=torch.float32)
         self.values = torch.zeros(shape, dtype=torch.float32)
-        #: Integration steps covered by each transition. Always >= 1.
+
         self.durations = torch.ones(shape, dtype=torch.float32)
 
         self.advantages = torch.zeros(shape, dtype=torch.float32)
@@ -197,7 +194,6 @@ class RolloutBuffer:
             self._compute_returns_standard(last_value, gamma_phys, gae_lambda_phys)
             return
 
-        # Per-transition discounts, so a short final hold gets its own value.
         durations = self.durations[: self.ptr]
         gamma_base = torch.as_tensor(gamma_phys, dtype=torch.float32)
         lambda_base = torch.as_tensor(gae_lambda_phys, dtype=torch.float32)
@@ -212,10 +208,7 @@ class RolloutBuffer:
             lambda_t = lambdas[step]
 
             delta = self.rewards[step] + gamma_t * next_values * not_terminal - self.values[step]
-            # The recursion stops at any episode boundary, terminated or
-            # truncated: the next stored transition belongs to a new episode.
-            # The bootstrap above is gated only on termination, so a time limit
-            # still contributes V(s_final).
+
             last_gae = delta + gamma_t * lambda_t * self._same_episode(step) * last_gae
             self.advantages[step] = last_gae
 

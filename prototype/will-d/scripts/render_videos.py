@@ -63,26 +63,23 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import torch
+from latency_ml.experiments.shared_runner import PHASE4_TASKS
+from latency_ml.models.shared_trunk import SharedTrunkPolicy, build_shared_trunk_policy
 from PIL import Image, ImageDraw, ImageFont
 
 from latency_ml.config import EvaluationConfig
 from latency_ml.envs.factory import probe_dt_env_ns, probe_max_episode_steps, task_spec
 from latency_ml.experiments.evaluate import greedy_action
-from latency_ml.experiments.shared_runner import PHASE4_TASKS
-from latency_ml.models.shared_trunk import SharedTrunkPolicy, build_shared_trunk_policy
 from latency_ml.rl.task_policy import SharedTaskPolicy
 from latency_ml.seeding import seed_env
 from latency_ml.timing import derive_icdi
 
-#: Playback rate. One frame per integration step, and the integration step is
-#: 20 ms for both tasks, so 50 fps is real simulated time.
 FPS = 50
 
-#: Latency grid, in milliseconds. Matches the sweep's grid exactly; the script
-#: refuses to render a condition the results tree has no checkpoint for.
+
 DEFAULT_LATENCIES_MS: tuple[int, ...] = (20, 40, 60, 80, 100)
 
-#: Human-readable action names per task, for the overlay.
+
 TASK_ACTIONS: dict[str, tuple[str, ...]] = {
     "cartpole": ("push left", "push right"),
     "lunarlander": ("do nothing", "left engine", "main engine", "right engine"),
@@ -93,8 +90,7 @@ TASK_TITLES: dict[str, str] = {
     "lunarlander": "LunarLander-v3",
 }
 
-#: Panel colour ramp across the grid, green through red, so a reader can tell
-#: the conditions apart even in a still frame.
+
 LATENCY_COLOURS: dict[int, tuple[int, int, int]] = {
     20: (46, 164, 79),
     40: (201, 162, 39),
@@ -217,9 +213,6 @@ class TaskRender:
         }
 
 
-# -- policy loading ---------------------------------------------------------
-
-
 def load_policy(checkpoint: Path) -> SharedTrunkPolicy:
     """Load a saved shared-trunk checkpoint.
 
@@ -248,9 +241,6 @@ def sha256_of(path: Path) -> str:
 def checkpoint_path(root: Path, latency_ns: int, seed: int) -> Path:
     """The sweep's checkpoint layout: ``<root>/<latency>ns/seed<n>/policy.pt``."""
     return root / f"{latency_ns}ns" / f"seed{seed}" / "policy.pt"
-
-
-# -- rollout ----------------------------------------------------------------
 
 
 def render_env(task: str) -> gym.Env[Any, Any]:
@@ -338,9 +328,6 @@ def summarise(state: PanelState, checkpoint: Path, eval_seed: int) -> RolloutSum
         return_total=state.ret,
         outcome=state.outcome,
     )
-
-
-# -- overlay drawing --------------------------------------------------------
 
 
 def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -445,9 +432,6 @@ def compose_ladder(
     return canvas
 
 
-# -- encoding ---------------------------------------------------------------
-
-
 def _ffmpeg() -> str:
     try:
         from imageio_ffmpeg import get_ffmpeg_exe
@@ -521,9 +505,6 @@ def encode(cards: Iterator[Image.Image], path: Path, size: tuple[int, int], fps:
     return count
 
 
-# -- task rendering ---------------------------------------------------------
-
-
 def render_task(
     task: str,
     root: Path,
@@ -542,9 +523,7 @@ def render_task(
     """
     dt_env_ns = probe_dt_env_ns(task)
     max_steps = probe_max_episode_steps(task) or 500
-    # The evaluation protocol's episode-0 seed, shared across conditions. Same
-    # constant the paired evaluation uses, taken from its config rather than
-    # restated here.
+
     eval_seed = EvaluationConfig().episode_seed(0)
 
     policies: dict[int, SharedTrunkPolicy] = {}
