@@ -10,14 +10,12 @@ import torch
 
 from latency_ml.config import ProjectConfig
 from latency_ml.envs.factory import make_latency_env
-from latency_ml.envs.latency_env import ACTION_SWITCHED_KEY, HOLD_STEPS_KEY
-from latency_ml.envs.metrics import CARTPOLE_THETA_INDEX, CARTPOLE_X_INDEX, LANDER_ANGLE_INDEX, LANDER_X_INDEX, ConditionSummary, EpisodeMetrics, EpisodeRecorder, summarise_episodes
+from latency_ml.envs.latency_env import HOLD_STEPS_KEY
+from latency_ml.envs.metrics import ConditionSummary, EpisodeMetrics, EpisodeRecorder, summarise_episodes
 from latency_ml.models.architectures import MLPPolicy, build_control_policy
 from latency_ml.rl.task_policy import TaskPolicy
 from latency_ml.seeding import seed_env
 from latency_ml.timing import derive_icdi
-
-_TASK_INDICES: dict[str, tuple[int, int]] = {"cartpole": (CARTPOLE_THETA_INDEX, CARTPOLE_X_INDEX), "lunarlander": (LANDER_ANGLE_INDEX, LANDER_X_INDEX)}
 
 
 def greedy_action(policy: TaskPolicy, obs: np.ndarray) -> int:
@@ -29,17 +27,13 @@ def greedy_action(policy: TaskPolicy, obs: np.ndarray) -> int:
 def run_episode(policy: TaskPolicy, task: str, latency_ns: int, seed: int) -> EpisodeMetrics:
     env = make_latency_env(task, latency_ns)
     try:
-        angle_index, position_index = _TASK_INDICES[task]
-        recorder = EpisodeRecorder(dt_env_ns=env.dt_env_ns, angle_index=angle_index, position_index=position_index)
+        recorder = EpisodeRecorder(dt_env_ns=env.dt_env_ns)
         obs, _ = seed_env(env, seed)
-        recorder.observe(np.asarray(obs))
         while True:
             action = greedy_action(policy, np.asarray(obs))
             obs, reward, terminated, truncated, info = env.step(action)
             recorder.accumulate_reward(float(reward))
             recorder.count_step(int(info.get(HOLD_STEPS_KEY, 1)))
-            recorder.count_decision(bool(info.get(ACTION_SWITCHED_KEY, False)))
-            recorder.observe(np.asarray(obs))
             if terminated or truncated:
                 return recorder.finish(terminated, truncated, np.asarray(obs))
     finally:
@@ -66,16 +60,10 @@ def summary_to_dict(summary: ConditionSummary) -> dict[str, Any]:
         "mean_return": summary.mean_return,
         "median_return": summary.median_return,
         "std_return": summary.std_return,
-        "ci95_return": summary.ci95_return,
         "mean_survival_s": summary.mean_survival_s,
         "failure_rate": summary.failure_rate,
         "truncation_rate": summary.truncation_rate,
         "episodes": summary.episodes,
-        "mean_max_abs_angle": summary.mean_max_abs_angle,
-        "mean_rms_angle": summary.mean_rms_angle,
-        "mean_action_switches_per_s": summary.mean_action_switches_per_s,
-        "mean_decisions_per_s": summary.mean_decisions_per_s,
-        "is_independent_measurement": summary.is_independent_measurement,
     }
 
 
@@ -142,10 +130,8 @@ def aggregate_by_latency(summaries: Sequence[ConditionSummary]) -> list[LatencyA
                 mean_survival_s=mean(s.mean_survival_s for s in group),
                 per_seed_returns=returns,
                 median_return=mean(s.median_return for s in group),
-                success_rate=mean(s.success_rate for s in group),
                 failure_rate=mean(s.failure_rate for s in group),
                 truncation_rate=mean(s.truncation_rate for s in group),
-                mean_action_switches_per_s=mean(s.mean_action_switches_per_s for s in group),
             )
         )
     return aggregates

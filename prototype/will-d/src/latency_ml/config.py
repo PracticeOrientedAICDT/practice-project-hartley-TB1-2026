@@ -9,7 +9,7 @@ from typing import Any, Final
 
 import yaml
 
-from latency_ml.timing import NATIVE_DT_ENV_NS, NATIVE_SWEEP_GRID_NS
+from latency_ml.timing import NATIVE_SWEEP_GRID_NS
 
 TBD_TOKEN: Final = "TBD"
 
@@ -44,38 +44,10 @@ class Unresolved:
         return f"Unresolved({self.parameter!r})"
 
 
-def _parse_tbd_or_int(value: object, parameter: str) -> int | Unresolved:
-    if isinstance(value, str) and value.strip().upper() == TBD_TOKEN:
-        return Unresolved(parameter)
-    if isinstance(value, bool):
-        raise ConfigError(f"{parameter} must be an integer or {TBD_TOKEN}, got a bool")
-    if isinstance(value, int):
-        return value
-    raise ConfigError(f"{parameter} must be an integer or {TBD_TOKEN}, got {type(value).__name__}")
-
-
-def _parse_tbd_or_str(value: object, parameter: str) -> str | Unresolved:
-    if isinstance(value, str) and value.strip().upper() == TBD_TOKEN:
-        return Unresolved(parameter)
-    if isinstance(value, str):
-        return value
-    raise ConfigError(f"{parameter} must be a string or {TBD_TOKEN}, got {type(value).__name__}")
-
-
 def _require_mapping(data: object, context: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigError(f"{context} must be a mapping, got {type(data).__name__}")
     return data
-
-
-@dataclass(frozen=True, slots=True)
-class TimingConfig:
-    dt_env_ns: int = NATIVE_DT_ENV_NS
-    max_episode_steps: int | None = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> TimingConfig:
-        return cls(dt_env_ns=int(data.get("environment_timestep_ns", NATIVE_DT_ENV_NS)), max_episode_steps=data.get("max_episode_steps"))
 
 
 class DiscountBasis(Enum):

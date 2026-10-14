@@ -14,8 +14,6 @@ from latency_ml.models.activations import bounded_relu
 if TYPE_CHECKING:
     from latency_ml.rl.task_policy import ParameterGroup
 CONTROL_HIDDEN: tuple[int, ...] = (128, 128)
-HFT_SMALL_HIDDEN: tuple[int, ...] = (32, 32)
-HFT_LARGE_HIDDEN: tuple[int, ...] = (128, 128)
 
 
 class MLPPolicy(nn.Module):
@@ -100,18 +98,6 @@ def build_control_policy(task: str, activation: nn.Module | None = None) -> MLPP
 
     obs_dim, n_actions = probe_env_dims(task)
     policy = MLPPolicy(obs_dim, n_actions, hidden=CONTROL_HIDDEN, activation=activation)
-    return policy
-
-
-def build_hft_policy(model: str, n_features: int, n_actions: int = 3, activation: nn.Module | None = None) -> MLPPolicy:
-    match model.lower():
-        case "small":
-            hidden = HFT_SMALL_HIDDEN
-        case "large":
-            hidden = HFT_LARGE_HIDDEN
-        case _:
-            raise ValueError(f"unknown HFT model {model!r}; expected 'small' or 'large'")
-    policy = MLPPolicy(n_features, n_actions, hidden=hidden, use_value_head=False, activation=activation)
     return policy
 
 

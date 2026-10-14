@@ -2,11 +2,9 @@ project:
   name: latency_sensitive_neural_accelerator
   seed: 12345
   task: cartpole
-
 timing:
   environment_timestep_ns: 20000000
   max_episode_steps: 500
-
 training:
   algorithm: ppo
   learning_rate: 2.5e-4
@@ -23,53 +21,49 @@ training:
   max_grad_norm: 0.5
   norm_adv: true
   clip_vloss: true
-  # 4M, matching PROTOCOL.md and EXPECTED_CONTROL_BUDGET.
-  #
-  # This used to read 2M with every run overriding it to 4M on the command line.
-  # That mismatch is what broke the learning-rate schedule: the anneal divided
-  # simulated progress by the *configured* budget, so a 4M run reached frac=1.0 at
-  # the 2M mark and then trained at exactly lr=0 for the rest while still
-  # reporting 4M spent. The schedule is denominated in the effective budget now,
-  # so the override is harmless -- but a default that disagrees with the protocol
-  # is an invitation to forget it, so they agree here instead.
+
+
+
+
+
+
+
+
+
   total_integration_steps: 4000000
   control_training_seeds: 10
 
-  # The one deliberate per-task departure from the physical defaults above.
-  #
-  # The default basis discounts per integration step, so a transition holding an
-  # action for N steps is discounted as gamma**N. Under action-hold latency that
-  # makes the per-decision credit horizon shrink with latency (GAE horizon ~17
-  # decisions at 20 ms, ~4 at 100 ms), so raising latency would change the
-  # credit-assignment horizon at the same time as the control bandwidth.
-  #
-  # LunarLander is therefore trained on decision-level discounting: 0.999 /
-  # 0.98 applied unscaled, giving a credit horizon of ~48 decisions that does not
-  # move with N. The values come from the RL Baselines3 Zoo tuned
-  # LunarLander-v3 entry, used as an external reference rather than as a tuning
-  # search. The invariance requirement is the methodological reason; Zoo is the
-  # evidence that a horizon of this length suits this task.
-  #
-  # Declared here, in the shared base, because the Phase 4 shared-trunk trainer
-  # and the dedicated controls must resolve discounting from the same source.
-  # CartPole has no entry and so keeps the physical basis unchanged.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   discount_overrides:
     lunarlander:
       basis: decision
       gamma: 0.999
       gae_lambda: 0.98
-
 evaluation:
   control_episodes_per_seed: 200
   eval_seed_base: 10000
   paired_evaluation: true
-
 policy:
   control_hidden_layers: [128, 128]
   hft_small: [32, 32]
   hft_large: [128, 128]
   hft_output_actions: [0, 1, 2]
-
 latency:
   sweep_grid_ns: [20000000, 40000000, 60000000, 80000000, 100000000]
   hft_grid_ns:
@@ -86,7 +80,6 @@ latency:
     - 10000000
     - 30000000
     - 100000000
-
 hardware:
   max_layers: 4
   max_width: 256
@@ -96,9 +89,7 @@ hardware:
   memory_bytes: TBD
   fast_execution_source: hartley_parameterised_model
   slow_execution_source: conventional_reference
-
 environment_kwargs: {}
-
 finance:
   source: synthetic
   data_path: data/synthetic
@@ -106,9 +97,9 @@ finance:
   transaction_cost_bps: 1.0
   prediction_horizon_events: 10
   synthetic:
-    # Phase 3 market generator. See configs/finance.yaml for the parameter
-    # meanings; the same block is here so the defaults are inherited rather than
-    # duplicated.
+
+
+
     seed: 7
     n_events: 200000
     trigger_prob: 0.02

@@ -1,40 +1,34 @@
-# Phase 2: LunarLander. Same framework, same frozen hyperparameters, and the
-# same budget and seed count as Phase 1, so the two response curves differ only
-# because the task differs.
-extends: base.yaml
 
+
+
+extends: base.yaml
 project:
   task: lunarlander
-
 timing:
-  # FPS = 50 and world.Step(1/FPS): 20 ms, same as CartPole.
-  environment_timestep_ns: 20000000
 
+  environment_timestep_ns: 20000000
 training:
-  # This was originally 1M steps x 5 seeds, on the stated assumption that Box2D
-  # would be substantially slower than CartPole. Measurement refuted that: a
-  # LunarLander cell runs at ~19k integration steps/s, so 2M steps costs about
-  # 105 s. The budget was therefore matched to Phase 1 exactly, which removes
-  # "the two tasks were trained for different amounts of simulated time" as an
-  # alternative explanation for any difference in the response. Changed before
-  # any LunarLander latency result was observed.
-  #
-  # Raised from 2M to 4M to match the budget CartPole actually ran at. Both tasks
-  # were previously overridden on the command line rather than here, so the file
-  # understated what was done; a test asserts the two stay equal.
+
+
+
+
+
+
+
+
+
+
+
   total_integration_steps: 4000000
   control_training_seeds: 10
-
 evaluation:
-  # Matched to Phase 1.
+
   control_episodes_per_seed: 200
-
 policy:
-  # Same hidden trunk as CartPole (PLAN.md section 9.2). Only input and output
-  # dimensions differ.
-  control_hidden_layers: [128, 128]
 
+
+  control_hidden_layers: [128, 128]
 environment_kwargs:
-  continuous: false   # 4 discrete actions
+  continuous: false
   gravity: -10.0
-  enable_wind: false  # fixed across latency conditions (PLAN.md section 9.5)
+  enable_wind: false

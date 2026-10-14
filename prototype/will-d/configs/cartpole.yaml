@@ -1,10 +1,7 @@
-# Phase 1: CartPole. Inherits the frozen PPO hyperparameters from base.yaml.
-extends: base.yaml
 
+extends: base.yaml
 project:
   task: cartpole
-
 timing:
-  max_episode_steps: 500   # CartPole-v1 default; 10 s of simulated time at 20 ms
-
+  max_episode_steps: 500
 environment_kwargs: {}
