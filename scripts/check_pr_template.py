@@ -12,10 +12,9 @@ reviewer, not the author. Prints each failure; exits 0 on pass, 1 on fail.
 
 import re
 import sys
-from typing import Optional
 
 
-def section_text(body: str, heading: str) -> Optional[str]:
+def section_text(body: str, heading: str) -> str | None:
     """Return comment-stripped text under ``## <heading>``, or None if missing."""
     match = re.search(
         r"^##\s+" + heading + r"\s*$(.*?)(?=^##\s+|\Z)",
