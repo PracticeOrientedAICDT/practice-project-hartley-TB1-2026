@@ -1,0 +1,80 @@
+# Phase 3: HFT limit-order-book replay.
+#
+# This config carries the FIXED-MODEL latency sweep, which is the primary
+# Phase 3 result and does not depend on the hardware model being frozen
+# (CODE_PLAN.md section 4.1).
+extends: base.yaml
+
+project:
+  task: finance
+
+training:
+  # The policy is trained once and then replayed under every latency
+  # condition, so this budget is not multiplied by the latency grid.
+  total_integration_steps: 500000
+  control_training_seeds: 3
+
+evaluation:
+  control_episodes_per_seed: 1   # episodes are replay sessions, not gym episodes
+
+policy:
+  hft_small: [32, 32]
+  hft_large: [128, 128]
+  hft_output_actions: [0, 1, 2]  # HOLD / BUY / SELL
+
+latency:
+  # The HFT sweep extends into the sub-millisecond regime because latency is a
+  # timestamp shift, not a held action, so the event stream resolves it.
+  hft_grid_ns:
+    - 100
+    - 300
+    - 1000
+    - 3000
+    - 10000
+    - 30000
+    - 100000
+    - 300000
+    - 1000000
+    - 3000000
+    - 10000000
+    - 30000000
+    - 100000000
+
+finance:
+  source: synthetic                # synthetic | lobster_sample
+  data_path: data/synthetic
+  # Aggressive fill against the book visible at t_exec, plus a flat cost.
+  # Held constant across every latency condition (PLAN.md section 11.7).
+  execution_model: aggressive
+  transaction_cost_bps: 1.0
+  prediction_horizon_events: 10
+  # The synthetic fixture carries a short-lived latent order-flow state that
+  # creates predictive but naturally decaying information. Decay is NOT a
+  # function of latency; latency enters only at replay. `latency-ml mechanism`
+  # validates this before any policy or latency sweep is built on it.
+  synthetic:
+    seed: 7
+    n_events: 200000
+    # Exogenous probability of an opportunity opening at an event.
+    trigger_prob: 0.02
+    # Mean events the latent state stays active once triggered. This, not a
+    # decay constant multiplied by latency, is what makes the opportunity
+    # expire.
+    mean_persistence_events: 25.0
+    # Signed price increment while the latent state is active.
+    drift_per_event: 0.02
+    # Symmetric per-event price noise, in the same units as drift.
+    noise_per_event: 0.05
+    # Order flow tilts to 75% buy-side while the state is positive.
+    flow_sensitivity: 0.25
+    base_spread: 0.01
+    base_size: 100.0
+
+hardware:
+  # Remains unresolved. The 2x2 capacity x speed experiment's Fast cells will
+  # render as PENDING_HARDWARE_MODEL until these are set (CODE_PLAN.md
+  # section 4.2). The fixed-model sweep above does not use them.
+  precision: TBD
+  peak_macs_per_second: TBD
+  fixed_overhead_ns: TBD
+  memory_bytes: TBD

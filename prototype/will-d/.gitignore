@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Experiment artifacts
+#
+# Checkpoints are large and regenerable from manifest + commit -- but the frozen
+# v1 fixtures under tests/fixtures/ are the opposite: they are external anchors
+# that cannot be regenerated without re-running a 4M-step sweep, so they are
+# committed deliberately.
+*.pt
+*.pth
+!tests/fixtures/**/*.pt
+results/raw/**/traces/
+results/raw/**/*.npy
+results/raw/**/*.npz
+
+# Data is downloaded, not committed. LOBSTER sessions live in data/lobster/.
+data/
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+# Sweep ledgers are progress state, not results; they are rebuilt by the runner.
+results/*/ledger.json
+
+# Rendered visualisations and the site built from them. Both are derived: the
+# videos come from the gitignored checkpoints via scripts/render_videos.py, and
+# site/ is a copy of them produced by scripts/build_site.py. Rebuild either with
+# `make videos` / `make site` rather than committing megabytes of x264.
+results/videos/
+site/
