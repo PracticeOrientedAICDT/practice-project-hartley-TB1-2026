@@ -40,6 +40,27 @@ jobs:
           if not re.search(r"closes\s+#\d+", body, re.IGNORECASE):
               failures.append('Missing "Closes #N" with a real issue number.')
 
+          why = re.search(
+              r"^##\s+What\s*/\s*why\s*$(.*?)(?=^##\s+|\Z)",
+              body,
+              re.IGNORECASE | re.MULTILINE | re.DOTALL,
+          )
+          if why is None:
+              failures.append('Missing "## What / why" section.')
+          else:
+              prose = re.sub(r"<!--.*?-->", "", why.group(1), flags=re.DOTALL)
+              prose = re.sub(r"closes\s+#\d+", "", prose, flags=re.IGNORECASE)
+              prose = "\n".join(
+                  line
+                  for line in prose.splitlines()
+                  if not re.match(r"^\s*-\s*\[[ xX]\]", line)
+              )
+              if len(prose.strip()) < 30:
+                  failures.append(
+                      '"## What / why" needs prose '
+                      "(30+ characters beyond the Closes line)."
+                  )
+
           section = re.search(
               r"^##\s+Test evidence\s*$(.*?)(?=^##\s+|\Z)",
               body,
