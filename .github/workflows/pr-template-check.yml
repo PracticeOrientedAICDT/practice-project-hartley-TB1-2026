@@ -1,0 +1,24 @@
+name: PR template check
+
+# Pass/fail gate on the PR template. No bot comments -- a red or green
+# job like lint. Draft PRs are skipped; the check runs once the PR is
+# marked ready for review (ready_for_review).
+on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, edited, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-template-check:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PR body adheres to template
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" | python3 scripts/check_pr_template.py
