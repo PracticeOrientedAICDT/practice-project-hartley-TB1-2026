@@ -140,16 +140,10 @@ class ProjectConfig:
             name=str(project["name"]),
             seed=int(project["seed"]),
             task=str(project["task"]),
-            training=TrainingConfig.from_dict(
-                _require_mapping(data.get("training", {}), "training")
-            ),
-            evaluation=EvaluationConfig.from_dict(
-                _require_mapping(data.get("evaluation", {}), "evaluation")
-            ),
+            training=TrainingConfig.from_dict(_require_mapping(data.get("training", {}), "training")),
+            evaluation=EvaluationConfig.from_dict(_require_mapping(data.get("evaluation", {}), "evaluation")),
             latency=LatencyConfig.from_dict(_require_mapping(data.get("latency", {}), "latency")),
-            environment_kwargs=dict(
-                _require_mapping(data.get("environment_kwargs", {}), "environment_kwargs")
-            ),
+            environment_kwargs=dict(_require_mapping(data.get("environment_kwargs", {}), "environment_kwargs")),
         )
 
     def to_dict(self) -> dict[str, Any]:

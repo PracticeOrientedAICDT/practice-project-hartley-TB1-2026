@@ -104,20 +104,14 @@ class PPOTrainer:
         counts = RunCounts(num_envs=cfg.num_envs, steps_per_decision=cfg.steps_per_decision)
         counts.action_steps = envs[0].action_steps
         counts.minibatch_size = cfg.minibatch_size(counts.action_steps)
-        optimisers: list[torch.optim.Optimizer] = [
-            torch.optim.Adam(group.parameters, lr=self.initial_lr, eps=1e-05)
-            for group in policy.parameter_groups()
-        ]
+        optimisers: list[torch.optim.Optimizer] = [torch.optim.Adam(group.parameters, lr=self.initial_lr, eps=1e-05) for group in policy.parameter_groups()]
         return TaskState(
             task=task,
             envs=envs,
             obs_shape=(int(shape[0]),),
             counts=counts,
             optimisers=optimisers,
-            optimiser_by_group={
-                group.name: opt
-                for group, opt in zip(policy.parameter_groups(), optimisers, strict=True)
-            },
+            optimiser_by_group={group.name: opt for group, opt in zip(policy.parameter_groups(), optimisers, strict=True)},
         )
 
     def planned_iterations(self, budget: int | None = None) -> dict[str, int]:
@@ -130,9 +124,7 @@ class PPOTrainer:
             out[task] = max(1, total // per_iter)
         return out
 
-    def learn(
-        self, total_integration_steps: int | None = None, log_interval: int = 50
-    ) -> TrainResult:
+    def learn(self, total_integration_steps: int | None = None, log_interval: int = 50) -> TrainResult:
         cfg = self.config.training
         budget = total_integration_steps or cfg.total_integration_steps
         planned = self.planned_iterations(budget)
@@ -153,9 +145,7 @@ class PPOTrainer:
                 state.counts.decision_transitions += transitions
                 state.counts.ppo_updates += 1
             if log_interval and iteration % log_interval == 0:
-                progress = " ".join(
-                    f"{t}={self.states[t].counts.ppo_updates}/{planned[t]}" for t in self.tasks
-                )
+                progress = " ".join(f"{t}={self.states[t].counts.ppo_updates}/{planned[t]}" for t in self.tasks)
                 print(f"iter {iteration:5d}/{iterations} | updates {progress}", flush=True)
         for task in self.tasks:
             for env in self.states[task].envs:
@@ -209,11 +199,7 @@ class PPOTrainer:
                 final_obs_list.append(np.asarray(obs_i, dtype=np.float32).copy())
                 next_obs_list.append(obs_i)
             with torch.no_grad():
-                _, final_values = policy(
-                    torch.as_tensor(
-                        np.stack(final_obs_list), dtype=torch.float32, device=self.device
-                    )
-                )
+                _, final_values = policy(torch.as_tensor(np.stack(final_obs_list), dtype=torch.float32, device=self.device))
             for i, env in enumerate(envs):
                 if terminateds[i] > 0.0 or truncateds[i] > 0.0:
                     env.release_terminal()
@@ -230,9 +216,7 @@ class PPOTrainer:
                 truncations=truncateds,
                 trunc_values=final_values,
             )
-            current_obs = torch.as_tensor(
-                np.stack(next_obs_list), dtype=torch.float32, device=self.device
-            )
+            current_obs = torch.as_tensor(np.stack(next_obs_list), dtype=torch.float32, device=self.device)
         with torch.no_grad():
             _, last_value = policy(current_obs)
         if task == "lunarlander":
@@ -259,17 +243,13 @@ class PPOTrainer:
             indices = np.random.permutation(n)
             for start in range(0, n, minibatch_size):
                 mb = indices[start : start + minibatch_size]
-                new_log_probs, entropy, new_values, _ = policy.evaluate_actions(
-                    batch.obs[mb], batch.actions[mb]
-                )
+                new_log_probs, entropy, new_values, _ = policy.evaluate_actions(batch.obs[mb], batch.actions[mb])
                 log_ratio = new_log_probs - batch.log_probs[mb]
                 logratio2 = log_ratio.clamp(1 - cfg.clip_coef, 1 + cfg.clip_coef)
                 loss1 = -log_ratio * batch.advantages[mb]
                 loss2 = -logratio2 * batch.advantages[mb]
                 pg_loss = torch.max(loss1, loss2).mean()
-                new_values_clipped = batch.values[mb] + (new_values - batch.values[mb]).clamp(
-                    -cfg.clip_coef, cfg.clip_coef
-                )
+                new_values_clipped = batch.values[mb] + (new_values - batch.values[mb]).clamp(-cfg.clip_coef, cfg.clip_coef)
                 v_loss_unclipped = (new_values - batch.returns[mb]) ** 2
                 v_loss_clipped = (new_values_clipped - batch.returns[mb]) ** 2
                 v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
@@ -295,9 +275,7 @@ class PPOTrainer:
             expected = cfg.total_integration_steps if budget is None else budget
             allowance = cfg.num_envs * cfg.steps_per_decision * counts.action_steps
             if counts.integration_steps > expected + allowance:
-                raise AssertionError(
-                    f"{task}: consumed {counts.integration_steps} integration steps, exceeding its {expected}-step budget"
-                )
+                raise AssertionError(f"{task}: consumed {counts.integration_steps} integration steps, exceeding its {expected}-step budget")
 
 
 def value_tensor(value: torch.Tensor | None) -> torch.Tensor:

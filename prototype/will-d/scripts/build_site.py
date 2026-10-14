@@ -17,9 +17,7 @@ def main():
         lines.append("<p>No evaluations yet.</p>")
     for fp in evals:
         data = json.loads(fp.read_text())
-        lines.append(
-            f"<section><h2>{fp.parent.name}</h2><pre>{json.dumps(data, sort_keys=True)[:2000]}</pre></section>"
-        )
+        lines.append(f"<section><h2>{fp.parent.name}</h2><pre>{json.dumps(data, sort_keys=True)[:2000]}</pre></section>")
     lines.append("</body></html>")
     out.write_text("\n".join(lines))
 

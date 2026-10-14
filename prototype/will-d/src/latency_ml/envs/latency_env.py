@@ -15,9 +15,7 @@ ACTION_SWITCHED_KEY = "action_switched"
 
 
 class LatencyHoldEnv(gym.Wrapper[ObsType, ActType, ObsType, ActType]):
-    def __init__(
-        self, env: gym.Env[ObsType, ActType], latency_ns: int, dt_env_ns: int = NATIVE_DT_ENV_NS
-    ) -> None:
+    def __init__(self, env: gym.Env[ObsType, ActType], latency_ns: int, dt_env_ns: int = NATIVE_DT_ENV_NS) -> None:
         super().__init__(env)
         self.latency_ns = latency_ns
         self.dt_env_ns = dt_env_ns
@@ -99,9 +97,7 @@ class LatencyHoldEnv(gym.Wrapper[ObsType, ActType, ObsType, ActType]):
     def _switched(self, action: Any) -> bool:
         if not self._have_last_action:
             return True
-        return not np.array_equal(
-            np.asarray(self._as_comparable(action)), np.asarray(self._last_action)
-        )
+        return not np.array_equal(np.asarray(self._as_comparable(action)), np.asarray(self._last_action))
 
     def _as_comparable(self, action: Any) -> Any:
         if isinstance(self.action_space, gym.spaces.Discrete):

@@ -117,9 +117,7 @@ class RolloutBuffer:
             self.advantages[step] = last_gae
         self.returns[: self.ptr] = self.advantages[: self.ptr] + self.values[: self.ptr]
 
-    def _compute_returns_standard(
-        self, last_value: torch.Tensor, gamma_phys: float, gae_lambda_phys: float
-    ) -> None:
+    def _compute_returns_standard(self, last_value: torch.Tensor, gamma_phys: float, gae_lambda_phys: float) -> None:
         last_gae = torch.zeros(self.num_envs, dtype=torch.float32)
         for step in reversed(range(self.ptr)):
             next_values = self._next_values(step, last_value)

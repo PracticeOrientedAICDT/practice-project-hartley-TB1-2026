@@ -63,12 +63,8 @@ def train_shared_cell(
     transfer: dict[str, Any] | None = None
     if False:
         transfer = None
-    trainer = PPOTrainer(
-        config, {t: SharedTaskPolicy(policy, t) for t in tasks}, latency_ns, seeds=seeds
-    )
-    result = trainer.learn(
-        total_integration_steps=total_integration_steps, log_interval=log_interval
-    )
+    trainer = PPOTrainer(config, {t: SharedTaskPolicy(policy, t) for t in tasks}, latency_ns, seeds=seeds)
+    result = trainer.learn(total_integration_steps=total_integration_steps, log_interval=log_interval)
     checkpoint_path: str | None = None
     checkpoint_sha: str | None = None
     if checkpoint_dir is not None:

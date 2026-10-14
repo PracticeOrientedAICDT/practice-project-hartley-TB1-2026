@@ -77,9 +77,7 @@ class MLPPolicy(nn.Module):
         value = self.critic(obs).flatten() if self.critic is not None else None
         return (logits, value)
 
-    def action_and_value(
-        self, obs: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def action_and_value(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward(obs)
         assert value is not None, "action_and_value requires a value head"
         log_probs_all = functional.log_softmax(logits, dim=-1)
@@ -87,9 +85,7 @@ class MLPPolicy(nn.Module):
         log_probs = log_probs_all.gather(1, actions.unsqueeze(-1)).squeeze(-1)
         return (actions, log_probs, value)
 
-    def evaluate_actions(
-        self, obs: torch.Tensor, actions: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward(obs)
         assert value is not None
         log_probs_all = functional.log_softmax(logits, dim=-1)
@@ -120,25 +116,31 @@ def describe_architecture(policy: MLPPolicy) -> str:
     return f"{arch.describe()} | {arch.num_layers} dense layers | max width {arch.max_width} | {arch.macs()} MACs | activation {policy.activation_name} | {arch.parameters()} params"
 
 
-
-
 class Architecture:
     def __init__(self, widths=None):
         self.widths = tuple(widths) if widths is not None else ()
+
     def describe(self):
-        return 'x'.join(str(w) for w in self.widths)
+        return "x".join(str(w) for w in self.widths)
+
     @property
     def num_layers(self):
         return len(self.widths)
+
     @property
     def max_width(self):
         return max(self.widths) if self.widths else 0
+
     def macs(self):
         return 0
+
     def parameters(self):
         return 0
 
+
 CLIP: float = 2.0
+
+
 class HartleyBoundedReLU(nn.Module):
     def __init__(self, clip: float = CLIP) -> None:
         super().__init__()

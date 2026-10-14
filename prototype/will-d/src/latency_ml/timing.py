@@ -73,17 +73,11 @@ def latency_grid() -> tuple[int, ...]:
 
 
 def resolved_grid(dt_env_ns: int = NATIVE_DT_ENV_NS) -> tuple[int, ...]:
-    return tuple(
-        latency_ns
-        for latency_ns in NATIVE_SWEEP_GRID_NS
-        if derive_icdi(latency_ns, dt_env_ns).is_independent_measurement
-    )
+    return tuple(latency_ns for latency_ns in NATIVE_SWEEP_GRID_NS if derive_icdi(latency_ns, dt_env_ns).is_independent_measurement)
 
 
 def resolved_target_grid(dt_env_ns: int = NATIVE_DT_ENV_NS) -> tuple[int, ...]:
-    return tuple(
-        icdi.requested_ns for icdi in iter_icdi(dt_env_ns) if icdi.is_independent_measurement
-    )
+    return tuple(icdi.requested_ns for icdi in iter_icdi(dt_env_ns) if icdi.is_independent_measurement)
 
 
 def iter_icdi(dt_env_ns: int = NATIVE_DT_ENV_NS) -> Iterator[ICDI]:

@@ -32,15 +32,11 @@ class CellOutcome:
 
 
 def base_seeds_for(config):
-    return Seeds(
-        training=config.seed, env=config.seed + 10000, eval=config.evaluation.eval_seed_base
-    )
+    return Seeds(training=config.seed, env=config.seed + 10000, eval=config.evaluation.eval_seed_base)
 
 
 def derive_cell_seeds(base, latency_ns, train_seed):
-    return Seeds(
-        training=train_seed, env=derive_seed(base.env, latency_ns, train_seed), eval=base.eval
-    )
+    return Seeds(training=train_seed, env=derive_seed(base.env, latency_ns, train_seed), eval=base.eval)
 
 
 def make_activation(name):
@@ -76,17 +72,13 @@ def run_cell(
             act = make_activation(activation) if activation else make_activation("capped-relu")
         act = make_activation("capped-relu") if not hasattr(act, "forward") else act
         policy = build_control_policy(config.task, activation=act)
-        trainer = PPOTrainer(
-            config, {config.task: policy}, cell.latency_ns, seeds={config.task: seed}
-        )
+        trainer = PPOTrainer(config, {config.task: policy}, cell.latency_ns, seeds={config.task: seed})
         trainer.learn(total_integration_steps=total_integration_steps)
         policy.save(dirp / "policy.pt")
         return CellOutcome(
             run_id=rid,
             status="completed",
-            counts=(
-                next(iter(trainer.states.values())).counts if hasattr(trainer, "states") else None
-            ),
+            counts=(next(iter(trainer.states.values())).counts if hasattr(trainer, "states") else None),
         )
     except Exception as error:
         return CellOutcome(run_id=rid, status="failed", error=f"{type(error).__name__}: {error}")
@@ -143,9 +135,7 @@ def run_sweep(
     outcomes = []
     if not payloads:
         return outcomes
-    with ProcessPoolExecutor(
-        max_workers=max_workers, initializer=_init, initargs=(worker_threads,)
-    ) as pool:
+    with ProcessPoolExecutor(max_workers=max_workers, initializer=_init, initargs=(worker_threads,)) as pool:
         for o in pool.map(_run_cell_worker, payloads):
             outcomes.append(o)
             if verbose:

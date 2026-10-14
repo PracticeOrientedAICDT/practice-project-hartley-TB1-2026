@@ -69,9 +69,7 @@ class SharedTrunkPolicy(nn.Module):
         self.actors = nn.ModuleDict()
         self.critics = nn.ModuleDict()
         for task, shape in task_shapes.items():
-            self.adapters[task] = nn.Sequential(
-                nn.Linear(shape.obs_dim, shared_width), copy.deepcopy(act)
-            )
+            self.adapters[task] = nn.Sequential(nn.Linear(shape.obs_dim, shared_width), copy.deepcopy(act))
             self.actors[task] = nn.Linear(shared_width, shape.n_actions)
             self.critics[task] = nn.Linear(shared_width, 1)
 
@@ -80,11 +78,7 @@ class SharedTrunkPolicy(nn.Module):
 
     def task_parameters(self, task: str) -> list[nn.Parameter]:
         self._check_task(task)
-        return (
-            list(self.adapters[task].parameters())
-            + list(self.actors[task].parameters())
-            + list(self.critics[task].parameters())
-        )
+        return list(self.adapters[task].parameters()) + list(self.actors[task].parameters()) + list(self.critics[task].parameters())
 
     def head_parameters(self, task: str) -> list[nn.Parameter]:
         self._check_task(task)
@@ -105,18 +99,14 @@ class SharedTrunkPolicy(nn.Module):
         value: torch.Tensor = self.critics[task](features).flatten()
         return (logits, value)
 
-    def action_and_value(
-        self, obs: torch.Tensor, task: str
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def action_and_value(self, obs: torch.Tensor, task: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward(obs, task)
         dist: torch.distributions.Categorical = torch.distributions.Categorical(logits=logits)
         action: torch.Tensor = dist.sample()
         log_prob: torch.Tensor = dist.log_prob(action)
         return (action, log_prob, value)
 
-    def evaluate_actions(
-        self, obs: torch.Tensor, actions: torch.Tensor, task: str
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor, task: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward(obs, task)
         dist: torch.distributions.Categorical = torch.distributions.Categorical(logits=logits)
         log_probs: torch.Tensor = dist.log_prob(actions)
@@ -143,8 +133,7 @@ class SharedTrunkPolicy(nn.Module):
     def describe(self) -> str:
         trunk = Architecture(widths=(self.shared_width, *SHARED_HIDDEN))
         return f"shared trunk {trunk.describe()} | " + " | ".join(
-            f"{t}: adapter {self.shapes[t].adapter_architecture.describe()}, head {self.shapes[t].actor_architecture.describe()}"
-            for t in self.tasks
+            f"{t}: adapter {self.shapes[t].adapter_architecture.describe()}, head {self.shapes[t].actor_architecture.describe()}" for t in self.tasks
         )
 
 
@@ -158,7 +147,5 @@ def probe_task_shapes(tasks: tuple[str, ...]) -> dict[str, TaskShape]:
     return shapes
 
 
-def build_shared_trunk_policy(
-    tasks: tuple[str, ...], activation: nn.Module | None = None
-) -> SharedTrunkPolicy:
+def build_shared_trunk_policy(tasks: tuple[str, ...], activation: nn.Module | None = None) -> SharedTrunkPolicy:
     return SharedTrunkPolicy(probe_task_shapes(tasks), activation=activation)

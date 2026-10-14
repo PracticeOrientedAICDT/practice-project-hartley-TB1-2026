@@ -19,6 +19,4 @@ def _enforce_unit_budget():
     start = time.perf_counter()
     yield
     elapsed = time.perf_counter() - start
-    assert elapsed < UNIT_BUDGET_S, (
-        f"Unit test too slow: {elapsed:.3f}s >= {UNIT_BUDGET_S:.3f}s budget"
-    )
+    assert elapsed < UNIT_BUDGET_S, f"Unit test too slow: {elapsed:.3f}s >= {UNIT_BUDGET_S:.3f}s budget"

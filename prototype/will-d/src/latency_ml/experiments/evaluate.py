@@ -47,18 +47,14 @@ def evaluate_policy(
     truncated = 0
     for i in range(n):
         e = make_latency_env(config.task, latency_ns)
-        seed = config.evaluation.episode_seed(
-            train_seed * 100 + i if hasattr(config.evaluation, "episode_seed") else train_seed + i
-        )
+        seed = config.evaluation.episode_seed(train_seed * 100 + i if hasattr(config.evaluation, "episode_seed") else train_seed + i)
         obs, _ = seed_env(e, seed)
         total = 0.0
         sim = 0
         term = False
         trunc = False
         while True:
-            action = int(
-                policy.action_only(torch.as_tensor(np.asarray(obs), dtype=torch.float32)).item()
-            )
+            action = int(policy.action_only(torch.as_tensor(np.asarray(obs), dtype=torch.float32)).item())
             obs, r, tv, tr, info = e.step(action)
             total += float(r)
             sim += int(info.get(HOLD_STEPS_KEY, action_steps))

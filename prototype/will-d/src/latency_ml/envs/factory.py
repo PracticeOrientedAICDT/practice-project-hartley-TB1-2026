@@ -41,9 +41,7 @@ def known_tasks() -> tuple[str, ...]:
 
 def task_spec(task: str) -> dict[str, Any]:
     if task not in _TASK_SPECS:
-        raise UnsupportedTaskError(
-            f"unknown task {task!r}; known tasks: {', '.join(known_tasks())}"
-        )
+        raise UnsupportedTaskError(f"unknown task {task!r}; known tasks: {', '.join(known_tasks())}")
     return _TASK_SPECS[task]
 
 
@@ -77,11 +75,7 @@ def probe_env_dims(task: str) -> tuple[int, int]:
     env = make_base_env(task)
     try:
         obs_dim = int(env.observation_space.shape[0])
-        n_actions = (
-            int(env.action_space.n)
-            if isinstance(env.action_space, gym.spaces.Discrete)
-            else int(getattr(env.action_space, "shape", (0,))[0])
-        )
+        n_actions = int(env.action_space.n) if isinstance(env.action_space, gym.spaces.Discrete) else int(getattr(env.action_space, "shape", (0,))[0])
         return (obs_dim, n_actions)
     finally:
         env.close()
@@ -96,9 +90,7 @@ def probe_max_episode_steps(task: str) -> int | None:
         env.close()
 
 
-def make_latency_env(
-    task: str, latency_ns: int, *, dt_env_ns: int | None = None, **overrides: Any
-) -> LatencyHoldEnvT:
+def make_latency_env(task: str, latency_ns: int, *, dt_env_ns: int | None = None, **overrides: Any) -> LatencyHoldEnvT:
     dt = dt_env_ns if dt_env_ns is not None else probe_dt_env_ns(task)
     env = make_base_env(task, **overrides)
     return LatencyHoldEnv(env, latency_ns=latency_ns, dt_env_ns=dt)
