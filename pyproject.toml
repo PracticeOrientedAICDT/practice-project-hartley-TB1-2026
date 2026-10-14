@@ -26,5 +26,12 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.ty.src]
+# Exploratory spikes under prototype/ carry their own dependency stacks
+# (e.g. torch) that are not installed in the repo-root environment, so ty
+# cannot resolve their third-party imports. Keep them out of root type
+# checking; ruff still lints them.
+exclude = ["prototype"]
+
 [tool.ty.environment]
 python-version = "3.12"

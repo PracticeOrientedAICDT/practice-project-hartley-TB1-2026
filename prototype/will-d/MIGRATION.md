@@ -27,16 +27,28 @@ No `tests/` — per request this folder ships code + docs only.
   (the GitHub repo, not the GitLab `hartley-prototype`).
 - PR: draft, blank body, base `dev` (per repo rule `feature/* → dev`).
 
-## What was copied (67 files, ~0.95 MB)
+## What was copied (50 files, ~0.8 MB)
 
-`src/latency_ml/` (all packages: `analysis/`, `envs/`, `experiments/`,
-`finance/`, `hardware/`, `models/`, `rl/`, `cli.py`, `config.py`,
-`seeding.py`, `timing.py`), `configs/` (6 yamls), `scripts/`
-(`build_site.py`, `render_videos.py`), `docs/ENVIRONMENT.md`, `PROTOCOL.md`,
-`RESULTS.md`, `README.md`, `Makefile`, `pyproject.toml`, `uv.lock`,
-`.python-version`, `.gitignore`.
+`src/latency_ml/` (packages: `analysis/`, `envs/`, `experiments/`,
+`hardware/`, `models/`, `rl/`, plus `cli.py`, `config.py`, `seeding.py`,
+`timing.py`), `configs/` (`base.yaml`, `cartpole.yaml`, `lunarlander.yaml`),
+`scripts/` (`build_site.py`, `render_videos.py`), `docs/ENVIRONMENT.md`,
+`PROTOCOL.md`, `RESULTS.md`, `README.md`, `Makefile`, `pyproject.toml`,
+`uv.lock`, `.python-version`, `.gitignore`.
 
-Full manifest with sha256: `SHA256SUMS` (67 lines).
+Full manifest with sha256: `SHA256SUMS` (50 lines).
+
+## What was removed after import
+
+- `src/latency_ml/finance/` (LOB/market/replay/target/selectivity/stage_a —
+  14 files) and `configs/finance.yaml`, `configs/finance_v2b.yaml`,
+  `configs/finance_v2b_amzn.yaml`. Out of scope for this prototype.
+  `REPRODUCE.sh` excludes them so a rerun keeps this state.
+- Left as-is (verbatim, non-functional without the package): finance
+  references in `cli.py` (finance subcommands/imports), `config.py`
+  (`FinanceConfig`), and the `finance:` block in `configs/base.yaml`.
+  `PROTOCOL.md`/`RESULTS.md` still document the finance (V2B/L1) findings
+  as the historical record.
 
 ## What was deliberately excluded
 
@@ -72,14 +84,15 @@ so metadata never contaminates the checksum manifest.
   They are **not** wired into the repo-root `uv sync --frozen` / CI —
   root CI uses the root lock. To run the snapshot standalone, copy this
   folder out and `uv sync --all-extras` inside it.
-- Root CI scope note: `ruff check .` / `ty check` walk `prototype/will-d/`,
-  but `pytest tests/unit|integration` do not (no tests added, existing suites
-  unaffected). Verification at import (repo root, `uv run`):
-  `ruff check prototype/will-d` — pass; `ruff format --check` — 57 files
-  already formatted; `pytest tests/unit`, `pytest tests/integration` — pass
-  (1 each, pre-existing); `ty check prototype/will-d` — 79 diagnostics
-  (snapshot was written against `mypy --strict`, not `ty`; left verbatim —
-  fixes belong in a follow-up).
+- Root CI scope note: `ruff check .` / `ruff format --check` cover
+  `prototype/will-d/` and pass; `pytest tests/unit|integration` do not touch
+  it (no tests added, existing suites unaffected — 1 pass each, pre-existing).
+  `ty` cannot resolve the snapshot's third-party imports (`torch`, …) from
+  the repo-root environment, so the repo-root `pyproject.toml` sets
+  `[tool.ty.src] exclude = ["prototype"]` (exploratory spikes carry their own
+  stacks; ruff still lints them). Verification at fix time, repo root via
+  `uv run`: `ruff check .` — pass; `ruff format --check .` — 62 files
+  formatted; `ty check` — pass.
 
 ## Results pointers (not copied)
 

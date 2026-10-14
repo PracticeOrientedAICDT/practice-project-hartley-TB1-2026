@@ -47,6 +47,10 @@ rsync -a --delete \
   --exclude='logs/' \
   --exclude='site/' \
   --exclude='results/videos/' \
+  --exclude='src/latency_ml/finance/' \
+  --exclude='configs/finance.yaml' \
+  --exclude='configs/finance_v2b.yaml' \
+  --exclude='configs/finance_v2b_amzn.yaml' \
   --exclude='*.pt' \
   --exclude='*.pth' \
   --exclude='.DS_Store' \
@@ -61,7 +65,9 @@ rm -f "$DEST/.gitkeep"
 # Reproducible checksum manifest (excludes itself + the two meta files).
 (cd "$DEST" && find . -type f \
   ! -name 'SHA256SUMS' ! -name 'MIGRATION.md' ! -name 'REPRODUCE.sh' \
-  ! -path './.git/*' ! -name '.DS_Store' ! -name '*.pyc' \
+  ! -path './.git/*' ! -path './.ruff_cache/*' ! -path './.pytest_cache/*' \
+  ! -path './.mypy_cache/*' ! -path '*/__pycache__/*' \
+  ! -name '.DS_Store' ! -name '*.pyc' \
   | sort | xargs shasum -a 256 > SHA256SUMS)
 
 echo "done: $(wc -l < "$DEST/SHA256SUMS") files, see $DEST/SHA256SUMS"
