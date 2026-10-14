@@ -1,0 +1,13 @@
+numpy>=1.26,<2.3
+gymnasium>=1.0,<2
+stable-baselines3>=2.4,<3
+torch>=2.3,<3
+pygame>=2.5,<3
+imageio>=2.34,<3
+imageio-ffmpeg>=0.5,<1
+pandas>=2.2,<3
+matplotlib>=3.8,<4
+streamlit>=1.40,<2
+pytest>=8,<10
+
+lxml>=4.9
