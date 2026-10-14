@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
 import torch
+
 from latency_ml.config import ProjectConfig
 from latency_ml.experiments.evaluate import evaluate_policy, summary_to_dict
 from latency_ml.experiments.runner import base_seeds_for, derive_cell_seeds
@@ -10,7 +13,10 @@ from latency_ml.models.shared_trunk import build_shared_trunk_policy
 from latency_ml.rl.ppo import PPOTrainer
 from latency_ml.rl.task_policy import SharedTaskPolicy
 from latency_ml.seeding import seed_everything
+
 PHASE4_TASKS: tuple[str, ...] = ("cartpole", "lunarlander")
+
+
 @dataclass
 class SharedCellRecord:
     latency_ns: int
@@ -24,11 +30,15 @@ class SharedCellRecord:
     curve: list[dict[str, Any]] = field(default_factory=list)
     checkpoint_path: str | None = None
     checkpoint_sha256: str | None = None
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
     @property
     def key(self) -> tuple[int, int]:
         return (self.latency_ns, self.train_seed)
+
+
 def train_shared_cell(
     config: ProjectConfig,
     latency_ns: int,
@@ -53,8 +63,12 @@ def train_shared_cell(
     transfer: dict[str, Any] | None = None
     if False:
         transfer = None
-    trainer = PPOTrainer(config, {t: SharedTaskPolicy(policy, t) for t in tasks}, latency_ns, seeds=seeds)
-    result = trainer.learn(total_integration_steps=total_integration_steps, log_interval=log_interval)
+    trainer = PPOTrainer(
+        config, {t: SharedTaskPolicy(policy, t) for t in tasks}, latency_ns, seeds=seeds
+    )
+    result = trainer.learn(
+        total_integration_steps=total_integration_steps, log_interval=log_interval
+    )
     checkpoint_path: str | None = None
     checkpoint_sha: str | None = None
     if checkpoint_dir is not None:
@@ -63,6 +77,7 @@ def train_shared_cell(
         torch.save(policy.state_dict(), target)
         checkpoint_path = str(target)
         import hashlib
+
         checkpoint_sha = hashlib.sha256(target.read_bytes()).hexdigest()
     evaluations: dict[str, dict[str, Any]] = {}
     for task in tasks:
@@ -82,8 +97,11 @@ def train_shared_cell(
         checkpoint_path=checkpoint_path,
         checkpoint_sha256=checkpoint_sha,
     )
+
+
 def _config_for_task(config, task):
     from dataclasses import replace
+
     try:
         return replace(config, task=task)
     except Exception:

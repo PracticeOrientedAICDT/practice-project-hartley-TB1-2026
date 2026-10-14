@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import argparse
 import contextlib
 import json
@@ -6,11 +7,14 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+
 from latency_ml.config import load_config
-DEFAULT_RESULTS_ROOT = "results"
 from latency_ml.experiments.runner import make_activation, run_sweep
 from latency_ml.experiments.shared_runner import train_shared_cell
+
+DEFAULT_RESULTS_ROOT = "results"
+
+
 def _act(value: str | None) -> str:
     if not value:
         return "capped-relu"
@@ -18,56 +22,77 @@ def _act(value: str | None) -> str:
     if v in ("relu", "torch-relu", "unbounded"):
         return "relu"
     return "capped-relu"
+
+
 def _default_config(phase: str) -> Path:
     if phase == "lunarlander":
-        return Path(__file__).resolve().parents[2]/"configs"/"lunarlander.yaml"
+        return Path(__file__).resolve().parents[2] / "configs" / "lunarlander.yaml"
     if phase == "cartpole":
-        return Path(__file__).resolve().parents[2]/"configs"/"cartpole.yaml"
-    return Path(__file__).resolve().parents[2]/"configs"/"base.yaml"
+        return Path(__file__).resolve().parents[2] / "configs" / "cartpole.yaml"
+    return Path(__file__).resolve().parents[2] / "configs" / "base.yaml"
+
+
 def _normalise_latencies(config, values):
     if values is not None:
         return tuple(values)
     return tuple(config.latency.sweep_grid_ns)
+
+
 def _normalise_seeds(config, values):
     if values is not None:
         return tuple(values)
     return tuple(range(config.training.control_training_seeds))
-DEFAULT_RESULTS_ROOT = "results"
+
+
+# done
+
+
 def _evaluate_dedicated(config, sweep_id, root, episodes, activation):
     import torch
-    from latency_ml.experiments.evaluate import evaluate_policy, aggregate_by_latency, load_policy
-    root=Path(root)
-    task=config.task
-    policies={}
-    base=root/sweep_id/task
+
+    from latency_ml.experiments.evaluate import aggregate_by_latency, evaluate_policy, load_policy
+
+    root = Path(root)
+    task = config.task
+    policies = {}
+    base = root / sweep_id / task
     if not base.exists():
-        print(f"no runs for sweep {sweep_id}", file=sys.stderr); return
-    for latdir in sorted(base.iterdir(), key=lambda p:int(p.name.removesuffix("ns"))):
-        lat=int(latdir.name.removesuffix("ns"))
-        for seedir in sorted(latdir.iterdir(), key=lambda p:int(p.name.removeprefix("seed"))):
-            ckpt=seedir/"policy.pt"
-            if not ckpt.exists(): continue
-            p=load_policy(config, task, activation=activation)
+        print(f"no runs for sweep {sweep_id}", file=sys.stderr)
+        return
+    for latdir in sorted(base.iterdir(), key=lambda p: int(p.name.removesuffix("ns"))):
+        lat = int(latdir.name.removesuffix("ns"))
+        for seedir in sorted(latdir.iterdir(), key=lambda p: int(p.name.removeprefix("seed"))):
+            ckpt = seedir / "policy.pt"
+            if not ckpt.exists():
+                continue
+            p = load_policy(config, task, activation=activation)
             p.load_state_dict(torch.load(ckpt, map_location="cpu", weights_only=True))
-            policies.setdefault(lat,{})[int(seedir.name.removeprefix("seed"))]=p
+            policies.setdefault(lat, {})[int(seedir.name.removeprefix("seed"))] = p
     if not policies:
-        print("no completed runs", file=sys.stderr); return
-    sums=[evaluate_policy(pol, config, lat, sd, episodes) for lat, seeds in sorted(policies.items()) for sd,pol in sorted(seeds.items())]
-    aggs=aggregate_by_latency(sums)
-    payload={"sweep_id":sweep_id,"n_policies":len(sums),"latency_response":aggs}
-    out=root/sweep_id/"evaluation.json"; out.parent.mkdir(parents=True, exist_ok=True); out.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        print("no completed runs", file=sys.stderr)
+        return
+    sums = [evaluate_policy(pol, config, lat, sd, episodes) for lat, seeds in sorted(policies.items()) for sd, pol in sorted(seeds.items())]
+    aggs = aggregate_by_latency(sums)
+    payload = {"sweep_id": sweep_id, "n_policies": len(sums), "latency_response": aggs}
+    out = root / sweep_id / "evaluation.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2, sort_keys=True))
     print(f"sweep {sweep_id}: {len(sums)} policies, wrote {out}")
+
 
 def _evaluate_shared(configs, sweep_id, root, latencies, seeds, activation, episodes):
     from latency_ml.experiments.evaluate import aggregate_by_latency, evaluate_policy
     from latency_ml.models.shared_trunk import build_shared_trunk_policy
     from latency_ml.rl.task_policy import SharedTaskPolicy
+
     tasks = ("cartpole", "lunarlander")
     if activation == "relu":
         import torch.nn as nn
+
         act = nn.ReLU()
     else:
         from latency_ml.models.architectures import bounded_relu
+
         act = bounded_relu()
     model = build_shared_trunk_policy(tasks, activation=act)
     for eval_task in tasks:
@@ -84,11 +109,17 @@ def _evaluate_shared(configs, sweep_id, root, latencies, seeds, activation, epis
         if not summaries:
             continue
         aggregates = aggregate_by_latency(summaries)
-        payload = {"sweep_id": sweep_id + "-shared-" + eval_task, "n_policies": len(summaries), "latency_response": aggregates}
+        payload = {
+            "sweep_id": sweep_id + "-shared-" + eval_task,
+            "n_policies": len(summaries),
+            "latency_response": aggregates,
+        }
         out_dir = root / (sweep_id + "-shared-" + eval_task)
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "evaluation.json").write_text(__import__("json").dumps(payload, indent=2, sort_keys=True))
         print(f"wrote {out_dir / 'evaluation.json'}")
+
+
 def _cmd_train(args) -> int:
     activation = _act(args.activation)
     root = Path(args.root)
@@ -117,32 +148,57 @@ def _cmd_train(args) -> int:
     act_mod = make_activation(activation)
     if activation == "relu":
         import torch.nn as nn
+
         act_mod = nn.ReLU()
     else:
         from latency_ml.models.architectures import bounded_relu
+
         act_mod = bounded_relu()
     tasks = ("cartpole", "lunarlander")
     configs = {t: load_config(Path(__file__).resolve().parents[2] / "configs" / (t + ".yaml")) for t in tasks}
     for latency_ns in latencies:
         for seed in seeds:
             ckpt_dir = root / args.sweep_id / "shared"
-            _ = train_shared_cell(config, latency_ns, seed, total_integration_steps=args.steps, tasks=tasks, episodes=args.eval_episodes, checkpoint_dir=ckpt_dir, activation=act_mod)
+            _ = train_shared_cell(
+                config,
+                latency_ns,
+                seed,
+                total_integration_steps=args.steps,
+                tasks=tasks,
+                episodes=args.eval_episodes,
+                checkpoint_dir=ckpt_dir,
+                activation=act_mod,
+            )
     _evaluate_shared(configs, args.sweep_id, root, latencies, seeds, activation, args.eval_episodes)
     return 0
+
+
 def _cmd_evaluate(args) -> int:
     activation = _act(args.activation) if getattr(args, "activation", None) else "capped-relu"
     config_path = Path(args.config)
     config = load_config(config_path)
     root = Path(args.root)
-    _evaluate_dedicated(config, args.sweep_id, root, args.episodes if hasattr(args, "episodes") else None, activation)
+    _evaluate_dedicated(
+        config,
+        args.sweep_id,
+        root,
+        args.episodes if hasattr(args, "episodes") else None,
+        activation,
+    )
     return 0
+
+
 def _cmd_view(args) -> int:
     results = Path(args.results)
     out = Path(args.out)
-    subprocess.run([sys.executable, "scripts/build_site.py", "--results", str(results), "--out", str(out)], check=False)
+    subprocess.run(
+        [sys.executable, "scripts/build_site.py", "--results", str(results), "--out", str(out)],
+        check=False,
+    )
     if getattr(args, "serve", True) and (not args.build_only):
         import http.server
         import socketserver
+
         os.chdir(out)
         handler = http.server.SimpleHTTPRequestHandler
         httpd = socketserver.TCPServer(("", args.port), handler)
@@ -151,6 +207,8 @@ def _cmd_view(args) -> int:
             httpd.serve_forever()
         httpd.server_close()
     return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="latency-ml")
     sub = p.add_subparsers(dest="command", required=True)
@@ -181,6 +239,8 @@ def _build_parser() -> argparse.ArgumentParser:
     vi.add_argument("--port", type=int, default=8000)
     vi.add_argument("--build-only", action="store_true")
     return p
+
+
 def main(argv=None) -> int:
     args = _build_parser().parse_args(argv)
     if args.command == "train":
@@ -190,5 +250,7 @@ def main(argv=None) -> int:
     if args.command == "view":
         return _cmd_view(args)
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

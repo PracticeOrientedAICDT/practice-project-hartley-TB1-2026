@@ -29,4 +29,3 @@ dist/
 # OS
 .DS_Store
 
-uv.lock
