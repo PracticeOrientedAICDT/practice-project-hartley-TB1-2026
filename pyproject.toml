@@ -13,7 +13,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "unit/scripts"]
 markers = [
     "unit: fast, isolated unit tests (<0.1s each)",
     "integration: slower cross-module wiring tests",
