@@ -34,7 +34,10 @@ Enforced by repository rulesets `protect-main` (`refs/heads/main`) and
 - CI (`.github/workflows/ci.yml`): `push` on `main`, `dev`
   + `pull_request` on `main`, `dev`, with `cancel-in-progress: true`.
   Feature pushes run once via the PR event (no `feature/**` push filter —
-  that caused duplicate runs).
+  that caused duplicate runs). A `pre_job` gate
+  (`fkirc/skip-duplicate-actions`) skips the redundant twin when a push and
+  a PR event cover the same commit (e.g. merging into `dev` while a
+  `dev` → `main` release PR is open).
 - Repo: `delete_branch_on_merge: true` — `feature/*` heads auto-delete.
   `main`/`dev` cannot auto-delete (deletion rule above).
 - PR template: `.github/pull_request_template.md` (auto-fills, enforced

@@ -14,7 +14,26 @@ env:
   UV_FROZEN: "1"
 
 jobs:
+  pre_job:
+    # A push to dev/main and the PR sync for a release PR cover the same
+    # commit. Run the suite once: skip the redundant twin.
+    # https://github.com/fkirc/skip-duplicate-actions
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          cancel_others: "true"
+          concurrent_skipping: same_content_newer
+          skip_after_successful_duplicate: "true"
+
   lint:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +47,8 @@ jobs:
       - run: uv run ty check
 
   pytest-unit:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +60,8 @@ jobs:
       - run: uv run pytest tests/unit
 
   pytest-integration:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
