@@ -12,6 +12,5 @@ import pytest
 def _require_type_mark(request):
     names = {m.name for m in request.node.iter_markers()}
     assert names & {"unit", "integration"}, (
-        f"{request.node.nodeid} has no type mark — put it under tests/unit,"
-        " tests/integration or unit/scripts"
+        f"{request.node.nodeid} has no type mark — put it under tests/unit or tests/integration"
     )
