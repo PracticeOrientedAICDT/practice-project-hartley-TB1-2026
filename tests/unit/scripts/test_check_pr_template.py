@@ -306,7 +306,7 @@ Closes #12
 
 
 @pytest.mark.parametrize("body", PASSING)
-def test_pr_template_passes(body):
+def test_that_check_pr_template_accepts_valid_body(body):
     """A template-shaped body passes with no failure messages."""
     status, messages = check_pr_template(body)
     assert status is True
@@ -314,7 +314,7 @@ def test_pr_template_passes(body):
 
 
 @pytest.mark.parametrize("body, expected", FAILING)
-def test_pr_template_fails(body, expected):
+def test_that_check_pr_template_rejects_invalid_body(body, expected):
     """Each violation fails with exactly the gate's failure message(s)."""
     status, messages = check_pr_template(body)
     assert status is False

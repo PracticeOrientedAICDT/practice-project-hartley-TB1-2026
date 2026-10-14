@@ -14,6 +14,7 @@ https://martinfowler.com/bliki/IntegrationTest.html
 
 - pytest is used for our testing suite, avoid using unittest
 - execute all tests via `uv run pytest` or inidividual folders via `uv run pytest -m tests/unit`
+- name tests `test_that_{unit}_{verb}_{behaviour}` (e.g. `test_that_check_pr_template_rejects_invalid_body`)
 
 https://docs.pytest.org/en/stable/index.html
 
