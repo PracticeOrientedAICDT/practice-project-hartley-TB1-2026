@@ -14,6 +14,7 @@ https://martinfowler.com/bliki/IntegrationTest.html
 
 - pytest is used for our testing suite, avoid using unittest
 - execute all tests via `uv run pytest` or inidividual folders via `uv run pytest -m tests/unit`
+- name tests `test_that_{unit}_{verb}_{behaviour}` (e.g. `test_that_check_pr_template_rejects_invalid_body`)
 
 https://docs.pytest.org/en/stable/index.html
 
@@ -21,6 +22,7 @@ https://martinfowler.com/articles/practical-test-pyramid.html
 
 # Unit test principles
 
+- Mirror the repo structure under `tests/unit/`, with the test file matching the file under test (e.g. `scripts/check_pr_template.py` → `tests/unit/scripts/test_check_pr_template.py`)
 - Common use cases test individual methods *def XXX()*
 - Often use pytest.mark.parametrize to iterate through multiple cases on each unit test
 - TBD ....

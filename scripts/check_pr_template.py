@@ -1,0 +1,77 @@
+"""Check a pull request body against the repo's PR template.
+
+The pure logic lives in :func:`check_pr_template`; :func:`main` reads the PR body from
+stdin so the same code path runs in CI and in the unit tests.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+
+PROSE_MIN_CHARS = 30
+
+_COMBINED_FLAGS = re.IGNORECASE | re.MULTILINE | re.DOTALL
+_CLOSES = re.compile(r"closes\s+#[1-9]\d*", re.IGNORECASE)
+_CLOSES_LINE = re.compile(r"^\s*closes\s+#[1-9]\d*\s*$", re.IGNORECASE | re.MULTILINE)
+_WHY_SECTION = re.compile(r"^##\s+What\s*/\s*why\s*$(.*?)(?=^#{1,6}\s+|\Z)", _COMBINED_FLAGS)
+_TEST_SECTION = re.compile(r"^##\s+Test\s+evidence\s*$(.*?)(?=^#{1,6}\s+|\Z)", _COMBINED_FLAGS)
+_HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+_HTML_OPEN = re.compile(r"<!--[\s\S]*\Z")
+_FENCE_CLOSED = re.compile(r"^```.*?\n.*?^```[ \t]*$", re.MULTILINE | re.DOTALL)
+_FENCE_OPEN = re.compile(r"^```[\s\S]*\Z", re.MULTILINE)
+_CHECKBOX_LINE = re.compile(r"^\s*-\s*\[[ xX]\]")
+_CHECKBOX = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
+
+
+def _visible_text(body: str) -> str:
+    """Return the body as rendered: fenced code blocks and HTML comments removed."""
+    text = _FENCE_CLOSED.sub("", body)
+    text = _FENCE_OPEN.sub("", text)
+    text = _HTML_COMMENT.sub("", text)
+    return _HTML_OPEN.sub("", text)
+
+
+def check_pr_template(body: str) -> tuple[bool, list[str]]:
+    """Check a PR body; return the pass/fail status and the failure messages."""
+    text = _visible_text(body)
+    failures: list[str] = []
+
+    if not _CLOSES.search(text):
+        failures.append('Missing "Closes #N" with a real issue number.')
+
+    why = _WHY_SECTION.search(text)
+    if why is None:
+        failures.append('Missing "## What / why" section.')
+    else:
+        prose = _CLOSES_LINE.sub("", why.group(1))
+        prose = "\n".join(line for line in prose.splitlines() if not _CHECKBOX_LINE.match(line))
+        if len(prose.strip()) < PROSE_MIN_CHARS:
+            failures.append('"## What / why" needs prose (30+ characters beyond the Closes line).')
+
+    section = _TEST_SECTION.search(text)
+    boxes = _CHECKBOX.findall(section.group(1)) if section else []
+    if not boxes:
+        failures.append('No tickable boxes under "## Test evidence".')
+    elif any(box == " " for box in boxes):
+        failures.append("Unticked test-evidence box.")
+
+    if failures:
+        return False, failures
+    return True, []
+
+
+def main() -> int:
+    """Read a PR body from stdin, print the verdict, and return an exit code."""
+    status, messages = check_pr_template(sys.stdin.read())
+    if status:
+        print("PR template check passed.")
+        return 0
+    print("PR template check failed:")
+    for message in messages:
+        print(f"  - {message}")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
