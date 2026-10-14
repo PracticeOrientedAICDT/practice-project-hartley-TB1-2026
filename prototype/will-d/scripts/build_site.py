@@ -102,11 +102,7 @@ def bars_svg(rows: list[dict]) -> str:
         frac = max(mean / best, 0.0)
         ms = round(r["latency_ns"] / 1_000_000)
         colour = "var(--good)" if frac > 0.9 else "var(--bad)" if frac < 0.5 else "var(--dim)"
-        groups.append(
-            f'<div class="bar-group"><strong>{mean:.0f}</strong>'
-            f'<div class="bar" style="height: {frac * 100:.1f}%; background: {colour}"></div>'
-            f"<span>{ms} ms</span></div>"
-        )
+        groups.append(f'<div class="bar-group"><strong>{mean:.0f}</strong><div class="bar" style="height: {frac * 100:.1f}%; background: {colour}"></div><span>{ms} ms</span></div>')
     return '<div class="bars">' + "".join(groups) + "</div>"
 
 
@@ -115,10 +111,7 @@ def table_html(rows: list[dict]) -> str:
     for r in sorted(rows, key=lambda r: r["latency_ns"]):
         ms = round(r["latency_ns"] / 1_000_000)
         trs.append(
-            '<tr><td>{} ms</td><td class="num">{}</td>'
-            '<td class="num">{:.1f} ± {:.1f}</td>'
-            '<td class="num">{:.1f}%</td>'
-            '<td class="num">{:.2f} s</td></tr>'.format(
+            '<tr><td>{} ms</td><td class="num">{}</td><td class="num">{:.1f} ± {:.1f}</td><td class="num">{:.1f}%</td><td class="num">{:.2f} s</td></tr>'.format(
                 ms,
                 r.get("action_steps", "—"),
                 r.get("mean_return", 0),
@@ -127,32 +120,18 @@ def table_html(rows: list[dict]) -> str:
                 r.get("mean_survival_s") or 0,
             )
         )
-    return (
-        "<table><thead><tr><th>latency</th><th>hold</th>"
-        "<th>mean return ± sd</th><th>failure rate</th><th>mean survival</th>"
-        "</tr></thead><tbody>" + "".join(trs) + "</tbody></table>"
-    )
+    return "<table><thead><tr><th>latency</th><th>hold</th><th>mean return ± sd</th><th>failure rate</th><th>mean survival</th></tr></thead><tbody>" + "".join(trs) + "</tbody></table>"
 
 
 def section_html(sweep: dict) -> str:
     rows = sweep["rows"]
     n_seeds = rows[0].get("n_seeds", "?")
-    return (
-        f"<section><h2>{task_of(sweep['sweep_id'])}</h2>"
-        f'<p class="meta">{sweep["sweep_id"]} · {len(rows)} latency conditions '
-        f"· {n_seeds} seeds each</p>"
-        f"{bars_svg(rows)}{table_html(rows)}</section>"
-    )
+    return f'<section><h2>{task_of(sweep["sweep_id"])}</h2><p class="meta">{sweep["sweep_id"]} · {len(rows)} latency conditions · {n_seeds} seeds each</p>{bars_svg(rows)}{table_html(rows)}</section>'
 
 
 def page_html(sweeps: list[dict]) -> str:
     if not sweeps:
-        body = (
-            '<div class="empty"><p>No sweep evaluations found under '
-            "<code>results/</code> yet.</p>"
-            "<p>Train one (see README <em>How to train</em>), then re-run "
-            "<code>./view.sh</code>.</p></div>"
-        )
+        body = '<div class="empty"><p>No sweep evaluations found under <code>results/</code> yet.</p><p>Train one (see README <em>How to train</em>), then re-run <code>./view.sh</code>.</p></div>'
     else:
         body = "\n".join(section_html(s) for s in sweeps)
     return f"""<!doctype html>

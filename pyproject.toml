@@ -5,6 +5,15 @@ description = "Hartley prototype"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.optional-dependencies]
+prototype-will-d = ["latency-ml[box2d]"]
+
+[tool.uv.sources]
+latency-ml = { workspace = true }
+
+[tool.uv.workspace]
+members = ["prototype/will-d"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",

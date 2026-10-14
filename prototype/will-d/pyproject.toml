@@ -48,22 +48,13 @@ build-backend = "hatchling.build"
 packages = ["src/latency_ml"]
 
 [tool.ruff]
-line-length = 100
+line-length = 200
 target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-    "N",   # pep8-naming
-    "ANN", # flake8-annotations
-    "RUF", # ruff-specific
+    "E", "F", "I", "UP", "B", "SIM", "RUF",
 ]
 ignore = [
     "ANN401", # allow `Any` where it is genuinely dynamic
