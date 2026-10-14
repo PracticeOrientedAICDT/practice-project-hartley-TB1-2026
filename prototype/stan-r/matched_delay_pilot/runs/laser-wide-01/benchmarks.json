@@ -1,0 +1,178 @@
+{
+  "host": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "numpy": "2.2.6",
+    "warning": "Host Python timing is not a hard-real-time or hardware guarantee."
+  },
+  "models": {
+    "laser_lat_0ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 3250.41,
+      "max_ns": 26250.0
+    },
+    "laser_lat_0ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2583.0,
+      "p95_ns": 2667.0,
+      "p99_ns": 3000.0,
+      "max_ns": 11959.0
+    },
+    "laser_lat_0ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2584.0,
+      "p95_ns": 2875.0,
+      "p99_ns": 3291.0,
+      "max_ns": 13417.0
+    },
+    "laser_lat_250ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2667.0,
+      "p99_ns": 2958.0,
+      "max_ns": 4541.0
+    },
+    "laser_lat_250ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2625.0,
+      "p95_ns": 2875.0,
+      "p99_ns": 3208.0,
+      "max_ns": 25375.0
+    },
+    "laser_lat_250ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2625.0,
+      "p95_ns": 2875.0,
+      "p99_ns": 3333.0,
+      "max_ns": 49834.0
+    },
+    "laser_lat_500ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2667.0,
+      "p95_ns": 2919.0499999999984,
+      "p99_ns": 3458.0,
+      "max_ns": 3791.0
+    },
+    "laser_lat_500ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2542.0,
+      "p95_ns": 2708.0,
+      "p99_ns": 3209.0,
+      "max_ns": 33958.0
+    },
+    "laser_lat_500ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2542.0,
+      "p95_ns": 2666.0,
+      "p99_ns": 2834.0,
+      "max_ns": 3083.0
+    },
+    "laser_lat_1000ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2584.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 2917.0,
+      "max_ns": 28375.0
+    },
+    "laser_lat_1000ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2583.0,
+      "p95_ns": 2709.0,
+      "p99_ns": 2916.01,
+      "max_ns": 30541.0
+    },
+    "laser_lat_1000ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2459.0,
+      "p95_ns": 2708.0,
+      "p99_ns": 2958.0,
+      "max_ns": 3583.0
+    },
+    "laser_lat_2000ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2417.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 3000.0,
+      "max_ns": 26416.0
+    },
+    "laser_lat_2000ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2625.0,
+      "p95_ns": 2834.0,
+      "p99_ns": 3501.249999999999,
+      "max_ns": 31125.0
+    },
+    "laser_lat_2000ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2708.0,
+      "p99_ns": 2875.41,
+      "max_ns": 28667.0
+    },
+    "laser_lat_4000ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2708.0,
+      "p99_ns": 2833.0,
+      "max_ns": 14833.0
+    },
+    "laser_lat_4000ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2791.0,
+      "p99_ns": 3167.0,
+      "max_ns": 12042.0
+    },
+    "laser_lat_4000ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2667.0,
+      "p95_ns": 2917.0,
+      "p99_ns": 3042.0,
+      "max_ns": 12208.0
+    },
+    "laser_lat_8000ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2417.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 2875.0,
+      "max_ns": 4792.0
+    },
+    "laser_lat_8000ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2458.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 3000.0,
+      "max_ns": 27500.0
+    },
+    "laser_lat_8000ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2667.0,
+      "p95_ns": 2917.0,
+      "p99_ns": 3042.0,
+      "max_ns": 14125.0
+    },
+    "laser_lat_10000ns_paper16_s0.json": {
+      "backend": "numpy",
+      "p50_ns": 2542.0,
+      "p95_ns": 2833.0,
+      "p99_ns": 3041.01,
+      "max_ns": 4250.0
+    },
+    "laser_lat_10000ns_paper16_s1.json": {
+      "backend": "numpy",
+      "p50_ns": 2541.0,
+      "p95_ns": 2792.0,
+      "p99_ns": 2958.0,
+      "max_ns": 23584.0
+    },
+    "laser_lat_10000ns_paper16_s2.json": {
+      "backend": "numpy",
+      "p50_ns": 2500.0,
+      "p95_ns": 2750.0,
+      "p99_ns": 2917.41,
+      "max_ns": 17083.0
+    }
+  }
+}
