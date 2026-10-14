@@ -1,10 +1,6 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
-
 import torch
-
-
 @dataclass(frozen=True, slots=True)
 class Batch:
     obs: torch.Tensor
@@ -14,11 +10,8 @@ class Batch:
     returns: torch.Tensor
     values: torch.Tensor
     durations: torch.Tensor
-
     def __len__(self) -> int:
         return int(self.obs.shape[0])
-
-
 class RolloutBuffer:
     def __init__(self, num_steps: int, num_envs: int, obs_shape: tuple[int, ...]) -> None:
         self.num_steps = num_steps
@@ -38,22 +31,17 @@ class RolloutBuffer:
         self.advantages = torch.zeros(shape, dtype=torch.float32)
         self.returns = torch.zeros(shape, dtype=torch.float32)
         self.ptr = 0
-
     def reset(self) -> None:
         self.ptr = 0
-
     @property
     def full(self) -> bool:
         return self.ptr >= self.num_steps
-
     @property
     def size(self) -> int:
         return self.ptr * self.num_envs
-
     @property
     def total_duration(self) -> int:
         return int(self.durations[: self.ptr].sum().item())
-
     def add(
         self,
         obs: torch.Tensor,
@@ -80,17 +68,14 @@ class RolloutBuffer:
         if trunc_values is not None:
             self.trunc_values[i] = trunc_values
         self.ptr += 1
-
     def _next_values(self, step: int, last_value: torch.Tensor) -> torch.Tensor:
         truncated = self.truncations[step] > 0
         if bool(truncated.any()):
             fallback = last_value if step == self.ptr - 1 else self.values[step + 1]
             return torch.where(truncated, self.trunc_values[step], fallback)
         return last_value if step == self.ptr - 1 else self.values[step + 1]
-
     def _same_episode(self, step: int) -> torch.Tensor:
         return 1.0 - torch.clamp(self.dones[step] + self.truncations[step], max=1.0)
-
     def compute_returns(self, last_value: torch.Tensor, gamma_phys: float, gae_lambda_phys: float, duration_aware: bool = True) -> None:
         if not duration_aware:
             self._compute_returns_standard(last_value, gamma_phys, gae_lambda_phys)
@@ -110,7 +95,6 @@ class RolloutBuffer:
             last_gae = delta + gamma_t * lambda_t * self._same_episode(step) * last_gae
             self.advantages[step] = last_gae
         self.returns[: self.ptr] = self.advantages[: self.ptr] + self.values[: self.ptr]
-
     def _compute_returns_standard(self, last_value: torch.Tensor, gamma_phys: float, gae_lambda_phys: float) -> None:
         last_gae = torch.zeros(self.num_envs, dtype=torch.float32)
         for step in reversed(range(self.ptr)):
@@ -120,7 +104,6 @@ class RolloutBuffer:
             last_gae = delta + gamma_phys * gae_lambda_phys * self._same_episode(step) * last_gae
             self.advantages[step] = last_gae
         self.returns[: self.ptr] = self.advantages[: self.ptr] + self.values[: self.ptr]
-
     def get(self, advantages_normalised: bool = True) -> Batch:
         flat = slice(0, self.ptr)
         advantages = self.advantages[flat].reshape(-1)

@@ -21,35 +21,8 @@ training:
   max_grad_norm: 0.5
   norm_adv: true
   clip_vloss: true
-
-
-
-
-
-
-
-
-
   total_integration_steps: 4000000
   control_training_seeds: 10
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   discount_overrides:
     lunarlander:
       basis: decision
@@ -97,9 +70,6 @@ finance:
   transaction_cost_bps: 1.0
   prediction_horizon_events: 10
   synthetic:
-
-
-
     seed: 7
     n_events: 200000
     trigger_prob: 0.02

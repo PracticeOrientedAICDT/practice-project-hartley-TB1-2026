@@ -1,20 +1,15 @@
 from __future__ import annotations
-
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
-
 import numpy as np
 import torch
 from torch import nn
-
 from latency_ml.config import ProjectConfig
 from latency_ml.envs.latency_env import HOLD_STEPS_KEY
 from latency_ml.rl.buffer import RolloutBuffer
 from latency_ml.rl.task_policy import TaskPolicy
 from latency_ml.seeding import Seeds, seed_env, seed_everything
-
-
 @dataclass(slots=True)
 class RunCounts:
     integration_steps: int = 0
@@ -26,21 +21,15 @@ class RunCounts:
     steps_per_decision: int = 0
     action_steps: int = 0
     wall_time_s: float = 0.0
-
     def to_dict(self) -> dict[str, float | int]:
         return asdict(self)
-
-
 @dataclass
 class TrainResult:
     counts: dict[str, RunCounts] = field(default_factory=dict)
     wall_time_s: float = 0.0
     planned_iterations: dict[str, int] = field(default_factory=dict)
-
     def to_dict(self) -> dict[str, object]:
         return {"counts": {t: c.to_dict() for t, c in self.counts.items()}, "planned_iterations": dict(self.planned_iterations), "wall_time_s": self.wall_time_s}
-
-
 @dataclass
 class TaskState:
     task: str
@@ -49,8 +38,6 @@ class TaskState:
     counts: RunCounts
     optimisers: list[torch.optim.Optimizer]
     optimiser_by_group: dict[str, torch.optim.Optimizer]
-
-
 class PPOTrainer:
     def __init__(self, config: ProjectConfig, policies: dict[str, TaskPolicy], latency_ns: int, device: str = "cpu", seed_offset: int = 0, seeds: dict[str, Seeds] | None = None) -> None:
         if not policies:
@@ -76,10 +63,8 @@ class PPOTrainer:
             policy = self.policies[task]
             policy.to_device(self.device)
             self.states[task] = self._make_state(task, policy)
-
     def _make_state(self, task: str, policy: TaskPolicy) -> TaskState:
         from latency_ml.envs.factory import make_latency_env
-
         cfg = self.config.training
         envs = [make_latency_env(task, self.latency_ns) for _ in range(cfg.num_envs)]
         shape = envs[0].observation_space.shape
@@ -97,7 +82,6 @@ class PPOTrainer:
             optimisers=optimisers,
             optimiser_by_group={group.name: opt for group, opt in zip(policy.parameter_groups(), optimisers, strict=True)},
         )
-
     def planned_iterations(self, budget: int | None = None) -> dict[str, int]:
         cfg = self.config.training
         total = budget or cfg.total_integration_steps
@@ -107,7 +91,6 @@ class PPOTrainer:
             per_iter = cfg.num_envs * cfg.steps_per_decision * action_steps
             out[task] = max(1, total // per_iter)
         return out
-
     def learn(self, total_integration_steps: int | None = None, log_interval: int = 50) -> TrainResult:
         cfg = self.config.training
         budget = total_integration_steps or cfg.total_integration_steps
@@ -140,16 +123,13 @@ class PPOTrainer:
         result = TrainResult(counts={t: self.states[t].counts for t in self.tasks}, wall_time_s=wall_time, planned_iterations=planned)
         self._assert_invariant(result, budget)
         return result
-
     def _initial_obs(self, task: str) -> torch.Tensor:
         envs = self.states[task].envs
         return torch.as_tensor(np.stack([seed_env(env, self.seeds[task].env + i)[0] for i, env in enumerate(envs)]), dtype=torch.float32, device=self.device)
-
     def _anneal(self, task: str, budget: int) -> None:
         frac = self.states[task].counts.integration_steps / max(1, budget)
         for optimiser in self.states[task].optimisers:
             anneal_learning_rate(optimiser, frac, self.initial_lr)
-
     def _collect(self, task: str, current_obs: torch.Tensor) -> tuple[RolloutBuffer, torch.Tensor]:
         cfg = self.config.training
         policy = self.policies[task]
@@ -191,7 +171,6 @@ class PPOTrainer:
             gamma, lam, duration_aware = (cfg.gamma_phys, cfg.gae_lambda_phys, True)
         buffer.compute_returns(last_value=value_tensor(last_value), gamma_phys=gamma, gae_lambda_phys=lam, duration_aware=duration_aware)
         return (buffer, current_obs)
-
     def _update(self, task: str, buffer: RolloutBuffer) -> int:
         cfg = self.config.training
         policy = self.policies[task]
@@ -224,7 +203,6 @@ class PPOTrainer:
                     optimiser.step()
                 state.counts.gradient_steps += 1
         return n
-
     def _assert_invariant(self, result: TrainResult, budget: int) -> None:
         cfg = self.config.training
         for task in self.tasks:
@@ -237,18 +215,12 @@ class PPOTrainer:
             allowance = cfg.num_envs * cfg.steps_per_decision * counts.action_steps
             if counts.integration_steps > expected + allowance:
                 raise AssertionError(f"{task}: consumed {counts.integration_steps} integration steps, exceeding its {expected}-step budget")
-
-
 def value_tensor(value: torch.Tensor | None) -> torch.Tensor:
     assert value is not None, "rollout requires a value head"
     return value
-
-
 def anneal_learning_rate(optimizer: torch.optim.Optimizer, frac: float, initial_lr: float) -> float:
     new_lr = initial_lr * (1.0 - min(max(frac, 0.0), 1.0))
     for group in optimizer.param_groups:
         group["lr"] = new_lr
     return new_lr
-
-
 __all__ = ["PPOTrainer", "RunCounts", "TaskState", "TrainResult", "anneal_learning_rate", "value_tensor"]
