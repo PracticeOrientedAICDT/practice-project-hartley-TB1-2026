@@ -1,6 +1,6 @@
 """Check a pull request body against the repo's PR template.
 
-The pure logic lives in :func:`check`; :func:`main` reads the PR body from
+The pure logic lives in :func:`check_pr_template`; :func:`main` reads the PR body from
 stdin so the same code path runs in CI and in the unit tests.
 """
 
@@ -20,8 +20,8 @@ _CHECKBOX_LINE = re.compile(r"^\s*-\s*\[[ xX]\]")
 _CHECKBOX = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
 
 
-def check(body: str) -> list[str]:
-    """Return failure messages for a PR body; an empty list means it passes."""
+def check_pr_template(body: str) -> tuple[bool, list[str]]:
+    """Check a PR body; return the pass/fail status and the failure messages."""
     failures: list[str] = []
 
     if not _CLOSES.search(body):
@@ -44,19 +44,21 @@ def check(body: str) -> list[str]:
     elif any(box == " " for box in boxes):
         failures.append("Unticked test-evidence box.")
 
-    return failures
+    if failures:
+        return False, failures
+    return True, []
 
 
 def main() -> int:
     """Read a PR body from stdin, print the verdict, and return an exit code."""
-    failures = check(sys.stdin.read())
-    if failures:
-        print("PR template check failed:")
-        for failure in failures:
-            print(f"  - {failure}")
-        return 1
-    print("PR template check passed.")
-    return 0
+    status, messages = check_pr_template(sys.stdin.read())
+    if status:
+        print("PR template check passed.")
+        return 0
+    print("PR template check failed:")
+    for message in messages:
+        print(f"  - {message}")
+    return 1
 
 
 if __name__ == "__main__":
