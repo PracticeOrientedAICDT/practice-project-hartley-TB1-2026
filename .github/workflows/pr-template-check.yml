@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  UV_FROZEN: "1"
+
 jobs:
   pr-template-check:
     if: github.event.pull_request.draft == false
@@ -25,4 +28,37 @@ jobs:
       - name: Check PR body adheres to template
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: printf '%s' "$PR_BODY" | uv run --no-sync python scripts/check_pr_template.py
+        run: |
+          uv run --no-sync python - <<'EOF'
+          import os
+          import re
+          import sys
+
+          body = os.environ.get("PR_BODY") or ""
+          failures = []
+
+          if not re.search(r"closes\s+#\d+", body, re.IGNORECASE):
+              failures.append('Missing "Closes #N" with a real issue number.')
+
+          section = re.search(
+              r"^##\s+Test evidence\s*$(.*?)(?=^##\s+|\Z)",
+              body,
+              re.IGNORECASE | re.MULTILINE | re.DOTALL,
+          )
+          boxes = (
+              re.findall(r"^\s*-\s*\[([ xX])\]", section.group(1), re.MULTILINE)
+              if section
+              else []
+          )
+          if not boxes:
+              failures.append('No tickable boxes under "## Test evidence".')
+          elif any(box == " " for box in boxes):
+              failures.append("Unticked test-evidence box.")
+
+          if failures:
+              print("PR template check failed:")
+              for failure in failures:
+                  print(f"  - {failure}")
+              sys.exit(1)
+          print("PR template check passed.")
+          EOF
