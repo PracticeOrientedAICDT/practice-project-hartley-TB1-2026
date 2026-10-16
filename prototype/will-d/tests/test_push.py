@@ -82,7 +82,7 @@ def test_push_trials_records_valid_outcomes():
     assert len(result.trials) == 3
     for trial in result.trials:
         if trial.tts_frames is not None:
-            assert 1 <= trial.tts_frames <= 200
+            assert 0 <= trial.tts_frames <= 200
             assert not trial.fell
         else:
             assert trial.fell or trial.decisions_to_stable is not None
@@ -97,12 +97,113 @@ def test_stable_band_sits_outside_nominal_hover():
     assert STABLE_THETA_RAD < 0.2095, "band must sit inside the termination envelope"
 
 
-def test_trial_kicks_leave_the_stable_band():
-    """Kick bounds must exceed the band so recovery time is measurable."""
-    from latency_ml.experiments.push import KICK_THETA_DOT, KICK_THETA_RAD, STABLE_THETA_DOT, STABLE_THETA_RAD
+def test_trial_kicks_are_external_force_pulses():
+    """Kick magnitude/duration are fixed; only the direction is randomised per trial."""
+    from latency_ml.experiments.push import KICK_FORCE_N, KICK_STEPS, kick_force_for_trial
 
-    assert KICK_THETA_RAD > STABLE_THETA_RAD
-    assert KICK_THETA_DOT > STABLE_THETA_DOT
+    assert KICK_FORCE_N == 15.0
+    assert KICK_STEPS == 6
+    forces = {kick_force_for_trial(CONFIG, 20000000, 0, trial)[1] for trial in range(20)}
+    assert forces <= {KICK_FORCE_N, -KICK_FORCE_N}
+    assert forces == {KICK_FORCE_N, -KICK_FORCE_N}, "both shove directions must occur"
+
+
+class _HoverPolicy:
+    """Tiny PD controller that hovers from a centered reset (test stub, not trained)."""
+
+    def action_only(self, obs):
+        import torch
+
+        theta, theta_dot = float(obs[2]), float(obs[3])
+        return torch.tensor(1 if theta + 0.3 * theta_dot > 0 else 0)
+
+
+def test_recovery_is_measured_post_kick():
+    """A stable preamble must not count as recovery: only post-kick holds qualify."""
+    from latency_ml.envs.factory import make_base_env
+    from latency_ml.experiments.push import run_push_rollout
+    from latency_ml.seeding import seed_env
+
+    env = make_base_env("cartpole")
+    try:
+        obs, _ = seed_env(env, 7)
+        roll = run_push_rollout(_HoverPolicy(), env, np.asarray(obs, dtype=np.float32), 1, 61, lambda frame: 0.0, disturb_from=60)
+        assert roll.survived == 61 and not roll.knocked_out
+        assert not roll.recovered
+        assert roll.tts_frames is None and roll.decisions_to_stable is None
+    finally:
+        env.close()
+
+
+def test_fall_rollout_runs_until_pole_is_down():
+    """Video rule: a fall plays past the 12-degree termination until the pole is horizontal."""
+    from latency_ml.envs.factory import make_base_env
+    from latency_ml.experiments.push import POLE_DOWN_THETA_RAD, run_push_rollout
+
+    def fallen_rollout(extend_fall):
+        env = make_base_env("cartpole")
+        try:
+            env.reset(seed=7)
+            env.unwrapped.state = np.array([0.0, 0.0, 0.25, 2.0])
+            return run_push_rollout(
+                _AlwaysLeftPolicy(),
+                env,
+                np.asarray(env.unwrapped.state, dtype=np.float32),
+                1,
+                500,
+                lambda frame: 0.0,
+                extend_fall=extend_fall,
+            )
+        finally:
+            env.close()
+
+    short = fallen_rollout(False)
+    assert short.survived == 1 and short.fell
+    assert abs(short.final_theta) < POLE_DOWN_THETA_RAD
+    long = fallen_rollout(True)
+    assert long.fell and long.survived > short.survived
+    assert abs(long.final_theta) >= POLE_DOWN_THETA_RAD
+    assert not any(long.flags)
+
+
+def test_fall_extension_skips_upright_cart_exit():
+    """A cart-track exit with the pole upright gets no pole-down extension."""
+    from latency_ml.envs.factory import make_base_env
+    from latency_ml.experiments.push import run_push_rollout
+
+    env = make_base_env("cartpole")
+    try:
+        env.reset(seed=7)
+        env.unwrapped.state = np.array([2.39, 5.0, 0.0, 0.0])
+        roll = run_push_rollout(_AlwaysLeftPolicy(), env, np.asarray(env.unwrapped.state, dtype=np.float32), 1, 500, lambda frame: 0.0, extend_fall=True)
+        assert roll.fell and roll.survived == 1
+    finally:
+        env.close()
+
+
+def test_external_force_preserves_pose():
+    """One forced step must integrate positions from pre-step velocities: no teleport."""
+    from latency_ml.envs.factory import make_base_env
+    from latency_ml.experiments.push import step_with_external_force
+    from latency_ml.seeding import seed_env
+
+    env = make_base_env("cartpole")
+    try:
+        _obs, _ = seed_env(env, 7)
+        before = np.asarray(env.unwrapped.state, dtype=np.float64)
+        tau = float(env.unwrapped.tau)
+        mag = float(env.unwrapped.force_mag)
+        step_with_external_force(env, 1, 15.0)
+        after = np.asarray(env.unwrapped.state, dtype=np.float64)
+        # Euler integration moves positions from pre-step velocities only.
+        assert after[0] == pytest.approx(before[0] + tau * before[1])
+        assert after[2] == pytest.approx(before[2] + tau * before[3])
+        # Velocities must feel the extra 15 N on top of the policy's +10 N.
+        assert after[1] != pytest.approx(before[1])
+        assert after[3] != pytest.approx(before[3])
+        assert float(env.unwrapped.force_mag) == pytest.approx(mag), "force_mag must be restored"
+    finally:
+        env.close()
 
 
 def test_trials_are_deterministic_for_a_fixed_seed():

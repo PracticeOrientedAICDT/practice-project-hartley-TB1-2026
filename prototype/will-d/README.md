@@ -19,8 +19,9 @@ completed `<latency>ns/seed<n>/policy.pt` checkpoints are skipped.
 ## Push phase (non-saturated measure)
 
 Return saturates once a policy survives the whole episode, so after training,
-measure **time to stability**: kick the pole with a random impulse
-(theta, theta-dot, x, x-dot) and time how long the policy needs to bring it back
+measure **time to stability**: shove the cart with a brief external force
+(±15 N for 6 env frames / 120 ms, added to the policy's own force while it
+keeps acting) and time how long the policy needs to bring the pole back
 into the stable band (|theta| < 0.12 rad, |theta-dot| < 1.0 rad/s, held for 20
 env steps). The band sits just outside the nominal hover envelope of a trained
 policy, so recovery time carries signal while the episode return does not.
@@ -38,8 +39,11 @@ in env frames and ms, success rate per latency).
 
 Record one rollout video per sweep / task / latency with the median-seed
 policy. `--mode control` records plain episodes (shown from control tables),
-`--mode push` replays push-phase trial 0 with a visible kick (shown from push
-tables). Existing files are skipped.
+`--mode push` replays a push-phase trial (first knock-out + recovery) with a
+visible force pulse after a stable hover (shown from push tables). All
+CartPole videos share the same rules: a per-frame STABLE/UNSTABLE pill, and a
+fall plays out past the 12-degree termination until the pole is horizontal.
+Existing files are skipped.
 
 ```bash
 uv run latency-ml render                  # all sweeps, both modes

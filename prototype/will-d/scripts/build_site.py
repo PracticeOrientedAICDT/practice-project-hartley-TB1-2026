@@ -395,7 +395,7 @@ def _details_tab(results: Path) -> str:
     push_proto = [
         ["trials / policy", f"{push_mod.DEFAULT_TRIALS}"],
         ["horizon", f"{push_mod.DEFAULT_HORIZON} env frames"],
-        ["kick (uniform)", f"x +- {push_mod.KICK_X:g} m, x-dot +- {push_mod.KICK_X_DOT:g} m/s, theta +- {push_mod.KICK_THETA_RAD:g} rad, theta-dot +- {push_mod.KICK_THETA_DOT:g} rad/s"],
+        ["kick (external force)", f"± {push_mod.KICK_FORCE_N:g} N on the cart for {push_mod.KICK_STEPS:d} env frames (120 ms); policy keeps acting, pose stays continuous"],
         ["stable band", f"|theta| <= {push_mod.STABLE_THETA_RAD:g} rad and |theta-dot| <= {push_mod.STABLE_THETA_DOT:g} rad/s, held {push_mod.STABLE_HOLD_STEPS} env frames"],
         ["time to stability", "env frames from kick to the start of the first stable window (None = censored)"],
         ["success rate", "fraction of trials with a measured TTS"],

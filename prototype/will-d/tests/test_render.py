@@ -55,8 +55,8 @@ def test_select_median_seed_missing_latency():
 def test_rollout_frames_respects_hold_and_cap():
     policy = _Policy()
     env = _FakeEnv(episode_len=100)
-    frames = rollout_frames(policy, "cartpole", 60000000, max_frames=10, dt_env_ns=20000000, env=env)
-    assert len(frames) == 10
+    frames, flags = rollout_frames(policy, "cartpole", 60000000, max_frames=10, dt_env_ns=20000000, env=env)
+    assert len(frames) == len(flags) == 10
     # 60ms / 20ms dt = 3 frames per decision (plus the initial reset frame).
     assert policy.calls == 3
 
@@ -64,8 +64,15 @@ def test_rollout_frames_respects_hold_and_cap():
 def test_rollout_frames_stops_at_termination():
     policy = _Policy()
     env = _FakeEnv(episode_len=4)
-    frames = rollout_frames(policy, "cartpole", 20000000, max_frames=360, dt_env_ns=20000000, env=env)
-    assert len(frames) == 1 + 4
+    frames, flags = rollout_frames(policy, "cartpole", 20000000, max_frames=360, dt_env_ns=20000000, env=env)
+    assert len(frames) == len(flags) == 1 + 4
+
+
+def test_rollout_frames_flags_match_task():
+    frames, flags = rollout_frames(_Policy(), "cartpole", 20000000, max_frames=10, dt_env_ns=20000000, env=_FakeEnv(episode_len=100))
+    assert len(frames) == len(flags) == 10 and all(flags)
+    _, ll_flags = rollout_frames(_Policy(), "lunarlander", 20000000, max_frames=10, dt_env_ns=20000000, env=_FakeEnv(episode_len=100))
+    assert ll_flags == []
 
 
 def test_write_video_encodes_mp4(tmp_path):
@@ -80,10 +87,10 @@ def test_write_video_flash_banner(tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
-def test_rollout_push_frames_applies_bounded_kick():
+def test_rollout_push_frames_applies_force_pulse():
     from types import SimpleNamespace
 
-    from latency_ml.experiments.push import KICK_THETA_RAD, KICK_X, _stable
+    from latency_ml.experiments.push import KICK_FORCE_N, KICK_STEPS, kick_force_for_trial
 
     config = SimpleNamespace(task="cartpole", seed=12345)
     env = _FakeEnv(episode_len=10000)
@@ -91,32 +98,32 @@ def test_rollout_push_frames_applies_bounded_kick():
     assert kick_index == 60
     assert len(frames) == len(flags) == 420
     assert all(flags[:kick_index])  # hover preamble inside the stable band
-    assert flags[kick_index] == _stable(np.asarray(env.state))
-    x, _, theta, _ = env.state
-    assert abs(x) <= KICK_X and abs(theta) <= KICK_THETA_RAD
-    assert any(abs(v) > 0 for v in env.state)  # a real perturbation, not zeros
+    # The kick is a force, not a state: same seed/trial always shoves the same way.
+    seed, force = kick_force_for_trial(config, 20000000, 3, 0)
+    assert abs(force) == KICK_FORCE_N
+    assert kick_force_for_trial(config, 20000000, 3, 0) == (seed, force)
+    assert KICK_STEPS == 6
 
 
 def test_rollout_push_frames_deterministic_per_seed():
     from types import SimpleNamespace
 
+    from latency_ml.experiments.push import kick_force_for_trial
+
     config = SimpleNamespace(task="cartpole", seed=12345)
-    env_a = _FakeEnv(episode_len=100)
-    rollout_push_frames(_Policy(), config, 20000000, train_seed=3, dt_env_ns=20000000, env=env_a)
-    env_b = _FakeEnv(episode_len=100)
-    rollout_push_frames(_Policy(), config, 20000000, train_seed=3, dt_env_ns=20000000, env=env_b)
-    assert np.array_equal(np.asarray(env_a.state), np.asarray(env_b.state))
-    env_c = _FakeEnv(episode_len=100)
-    rollout_push_frames(_Policy(), config, 20000000, train_seed=4, dt_env_ns=20000000, env=env_c)
-    assert not np.array_equal(np.asarray(env_a.state), np.asarray(env_c.state))
+    frames_a, _, _ = rollout_push_frames(_Policy(), config, 20000000, train_seed=3, dt_env_ns=20000000, env=_FakeEnv(episode_len=100))
+    frames_b, _, _ = rollout_push_frames(_Policy(), config, 20000000, train_seed=3, dt_env_ns=20000000, env=_FakeEnv(episode_len=100))
+    assert len(frames_a) == len(frames_b)
+    assert all(np.array_equal(a, b) for a, b in zip(frames_a, frames_b, strict=True))
+    assert kick_force_for_trial(config, 20000000, 3, 0) == kick_force_for_trial(config, 20000000, 3, 0)
 
 
 def test_pick_push_trial_prefers_recovery():
     from latency_ml.experiments.render import _pick_push_trial
 
     assert _pick_push_trial(lambda t: (10, False, True)) == 0
-    # Kick-stable recovery loses to a later kick-unstable recovery.
-    assert _pick_push_trial(lambda t: [(5, False, True), (50, True, True), (30, True, False), (99, True, False)][t]) == 2
+    # A recovery with no knock-out loses to a later knocked-out recovery.
+    assert _pick_push_trial(lambda t: [(5, False, True), (50, True, False), (30, True, True), (99, True, True)][t]) == 2
     # No recovery anywhere: longest survival wins.
     assert _pick_push_trial(lambda t: (t * 10, False, False)) == 9
 

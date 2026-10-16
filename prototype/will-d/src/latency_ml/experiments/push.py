@@ -19,8 +19,6 @@ import numpy as np
 import torch
 
 from latency_ml.config import ProjectConfig, load_config
-from latency_ml.envs.factory import make_latency_env
-from latency_ml.envs.latency_env import HOLD_STEPS_KEY
 from latency_ml.seeding import derive_seed, seed_env
 
 DEFAULT_TRIALS = 20
@@ -31,13 +29,18 @@ DEFAULT_HORIZON = 500
 STABLE_THETA_RAD = 0.12
 STABLE_THETA_DOT = 1.0
 STABLE_HOLD_STEPS = 20
-# The impulse kick is scaled to exceed the stability band so recovery is
-# measurable, and to fall short of the termination angle often enough that
-# strong kicks fail and censored trials carry signal.
-KICK_THETA_RAD = 0.15
-KICK_THETA_DOT = 1.2
-KICK_X = 0.15
-KICK_X_DOT = 0.3
+# The kick is an external horizontal force on the cart, added to the policy's
+# own force for a short pulse. 15 N for 6 env frames (120 ms) reliably knocks a
+# trained 20 ms policy out of the band (max |theta| 0.12-0.19 rad, inside the
+# 0.2095 rad termination angle) while staying recoverable. Pose is continuous
+# across the kick: positions integrate from pre-kick velocities, only the
+# force (hence acceleration, then velocity) jumps.
+KICK_FORCE_N = 15.0
+KICK_STEPS = 6
+# A fall video keeps rolling past termination until the pole is visibly down:
+# CartPole ends the episode at 12 degrees, while the pole still looks upright.
+POLE_DOWN_THETA_RAD = 1.5  # ~86 degrees, pole visually horizontal
+FALL_EXTENSION_FRAMES = 150  # safety cap, ~5 s
 
 
 @dataclass(frozen=True)
@@ -96,6 +99,137 @@ def _stable(obs: np.ndarray) -> bool:
     return abs(theta) <= STABLE_THETA_RAD and abs(theta_dot) <= STABLE_THETA_DOT
 
 
+def kick_force_for_trial(config: ProjectConfig, latency_ns: int, train_seed: int, trial: int) -> tuple[int, float]:
+    """The exact external force push-phase trial ``trial`` uses: seed plus Newtons."""
+    seed = derive_seed(config.seed + 500000, latency_ns, train_seed, trial)
+    rng = np.random.default_rng(seed)
+    return seed, float(KICK_FORCE_N * rng.choice([-1.0, 1.0]))
+
+
+def step_with_external_force(env: Any, action: Any, external_force: float) -> tuple[Any, float, bool, bool, dict[str, Any]]:
+    """Step the base env with ``external_force`` Newtons added to the policy's force.
+
+    CartPole derives its force from ``force_mag`` and the discrete action, so an
+    external push is applied by shifting that magnitude for one step: the pose
+    integrates from pre-step velocities exactly as undisturbed physics would.
+    """
+    unwrapped = env.unwrapped
+    if not hasattr(unwrapped, "force_mag"):
+        return env.step(action)
+    base_mag = float(unwrapped.force_mag)
+    unwrapped.force_mag = base_mag + external_force if int(action) == 1 else base_mag - external_force
+    try:
+        return env.step(action)
+    finally:
+        unwrapped.force_mag = base_mag
+
+
+@dataclass(frozen=True)
+class PushRollout:
+    frames: list[np.ndarray]
+    flags: list[bool]
+    survived: int
+    recovered: bool
+    knocked_out: bool
+    tts_frames: int | None
+    decisions_to_stable: int | None
+    fell: bool
+    final_theta: float
+
+
+def run_push_rollout(
+    policy: Any,
+    env: Any,
+    obs: np.ndarray,
+    action_steps: int,
+    max_frames: int,
+    force_at: Any,
+    disturb_from: int = 0,
+    render: bool = False,
+    extend_fall: bool = False,
+) -> PushRollout:
+    """Underlying-frame rollout with an external-force schedule.
+
+    ``force_at(frame)`` gives Newtons of external push for that env frame (0
+    outside the pulse); ``disturb_from`` marks the first disturbed frame so
+    knock-out and recovery are measured post-kick. The policy keeps choosing
+    actions every ``action_steps`` frames, so it fights the shove in real time.
+    With ``extend_fall``, a fall keeps rolling past termination (which fires at
+    12 degrees, pole still upright) until the pole is visibly down.
+    """
+    import logging
+    import warnings
+
+    frames: list[np.ndarray] = []
+    flags: list[bool] = []
+    held, decisions = 0, 0
+    tts: int | None = None
+    decisions_to_stable: int | None = None
+    recovered, knocked_out, fell = False, False, False
+    frame = 0
+    with torch.no_grad():
+        action = int(policy.action_only(torch.as_tensor(np.asarray(obs, dtype=np.float32))).item())
+    decisions += 1
+    while frame < max_frames:
+        if frame == disturb_from:
+            held = 0
+            recovered = False
+            tts = None
+            decisions_to_stable = None
+        obs, _, terminated, truncated, _ = step_with_external_force(env, action, float(force_at(frame)))
+        obs = np.asarray(obs, dtype=np.float32)
+        frame += 1
+        stable = _stable(obs)
+        flags.append(stable)
+        if frame - 1 >= disturb_from and not stable:
+            knocked_out = True
+        if stable:
+            held += 1
+            if held >= STABLE_HOLD_STEPS and not recovered:
+                recovered = True
+                tts = frame - disturb_from - held
+                decisions_to_stable = decisions
+        else:
+            held = 0
+        if render:
+            frames.append(np.asarray(env.render(), dtype=np.uint8))
+        if terminated or truncated:
+            fell = bool(terminated)
+            break
+        if frame < max_frames and frame % action_steps == 0:
+            with torch.no_grad():
+                action = int(policy.action_only(torch.as_tensor(obs)).item())
+            decisions += 1
+    if extend_fall and fell and abs(float(obs[2])) > STABLE_THETA_RAD:
+        gym_logger = logging.getLogger("gymnasium")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            prev, gym_logger.disabled = gym_logger.disabled, True
+            try:
+                for _ in range(FALL_EXTENSION_FRAMES):
+                    obs, _, _, _, _ = step_with_external_force(env, action, 0.0)
+                    obs = np.asarray(obs, dtype=np.float32)
+                    frame += 1
+                    flags.append(False)
+                    if render:
+                        frames.append(np.asarray(env.render(), dtype=np.uint8))
+                    if abs(float(obs[2])) >= POLE_DOWN_THETA_RAD or abs(float(obs[0])) > 3.5:
+                        break
+            finally:
+                gym_logger.disabled = prev
+    return PushRollout(
+        frames=frames,
+        flags=flags,
+        survived=frame,
+        recovered=recovered,
+        knocked_out=knocked_out,
+        tts_frames=tts,
+        decisions_to_stable=decisions_to_stable,
+        fell=fell,
+        final_theta=float(obs[2]),
+    )
+
+
 def run_push_trials(
     policy: Any,
     config: ProjectConfig,
@@ -105,49 +239,29 @@ def run_push_trials(
     horizon: int = DEFAULT_HORIZON,
     dt_env_ns: int | None = None,
 ) -> PushResult:
-    """Kick a CartPole episode with a random state perturbation and time recovery."""
-    env = make_latency_env(config.task, latency_ns, dt_env_ns=dt_env_ns)
-    action_steps = env.action_steps
-    dt = env.dt_env_ns
+    """Kick a CartPole episode with a random external-force pulse and time recovery."""
+    from latency_ml.envs.factory import make_base_env, probe_dt_env_ns
+    from latency_ml.timing import derive_icdi
+
+    dt = dt_env_ns if dt_env_ns is not None else probe_dt_env_ns(config.task)
+    action_steps = derive_icdi(latency_ns, dt).action_steps
     records: list[PushTrial] = []
     for trial in range(trials):
-        seed = derive_seed(config.seed + 500000, latency_ns, train_seed, trial)
-        rng = np.random.default_rng(seed)
-        obs, _ = seed_env(env, seed)
-        kick = [
-            rng.uniform(-KICK_X, KICK_X),
-            rng.uniform(-KICK_X_DOT, KICK_X_DOT),
-            rng.uniform(-KICK_THETA_RAD, KICK_THETA_RAD),
-            rng.uniform(-KICK_THETA_DOT, KICK_THETA_DOT),
-        ]
-        env.unwrapped.state = np.asarray(kick, dtype=np.float32)
-        obs = np.asarray(kick, dtype=np.float32)
-        held_frames = 0
-        frames = 0
-        tts: int | None = None
-        decisions_to_stable: int | None = None
-        fell = False
-        decisions = 0
-        while frames < horizon:
-            with torch.no_grad():
-                action = int(policy.action_only(torch.as_tensor(obs, dtype=torch.float32)).item())
-            decisions += 1
-            obs, _, terminated, truncated, info = env.step(action)
-            obs = np.asarray(obs, dtype=np.float32)
-            hold = int(info.get(HOLD_STEPS_KEY, 1))
-            frames += hold
-            if _stable(obs):
-                held_frames += hold
-                if tts is None and held_frames >= STABLE_HOLD_STEPS:
-                    tts = frames - held_frames
-                    decisions_to_stable = decisions
-            else:
-                held_frames = 0
-            if terminated or truncated:
-                fell = fell or bool(terminated)
-                break
-        records.append(PushTrial(seed=seed, tts_frames=tts, decisions_to_stable=decisions_to_stable, fell=fell))
-    env.close()
+        seed, force = kick_force_for_trial(config, latency_ns, train_seed, trial)
+        env = make_base_env(config.task)
+        try:
+            obs, _ = seed_env(env, seed)
+            roll = run_push_rollout(
+                policy,
+                env,
+                np.asarray(obs, dtype=np.float32),
+                action_steps,
+                horizon,
+                lambda frame, force=force: force if frame < KICK_STEPS else 0.0,
+            )
+        finally:
+            env.close()
+        records.append(PushTrial(seed=seed, tts_frames=roll.tts_frames, decisions_to_stable=roll.decisions_to_stable, fell=roll.fell))
     return PushResult(
         task=config.task,
         latency_ns=latency_ns,
