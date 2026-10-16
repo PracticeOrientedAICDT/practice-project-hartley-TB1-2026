@@ -4,18 +4,11 @@ from typing import Any
 
 import gymnasium as gym
 
-from latency_ml.envs.latency_env import LatencyHoldEnv, LatencyHoldEnvT
+from latency_ml.envs.latency_env import LatencyHoldEnv
 from latency_ml.timing import NATIVE_DT_ENV_NS
 
 CARTPOLE_DT_NS: int = 20000000
 LUNARLANDER_DT_NS: int = 20000000
-CARTPOLE_MAX_EPISODE_STEPS: int = 500
-LUNARLANDER_SOLVED_SCORE: float = 200.0
-
-
-class UnsupportedTaskError(ValueError):
-    pass
-
 
 _TASK_SPECS: dict[str, dict[str, Any]] = {
     "cartpole": {
@@ -35,6 +28,10 @@ _TASK_SPECS: dict[str, dict[str, Any]] = {
 }
 
 
+class UnsupportedTaskError(ValueError):
+    pass
+
+
 def known_tasks() -> tuple[str, ...]:
     return tuple(_TASK_SPECS)
 
@@ -45,15 +42,14 @@ def task_spec(task: str) -> dict[str, Any]:
     return _TASK_SPECS[task]
 
 
-def make_base_env(task: str, **overrides: Any) -> gym.Env[Any, Any]:
+def make_base_env(task: str, render_mode: str | None = None, **overrides: Any) -> gym.Env[Any, Any]:
     spec = task_spec(task)
     kwargs = dict(spec["kwargs"])
     kwargs.update(overrides)
-    return gym.make(spec["env_id"], render_mode=None, **kwargs)
+    return gym.make(spec["env_id"], render_mode=render_mode, **kwargs)
 
 
 def probe_dt_env_ns(task: str) -> int:
-    spec = task_spec(task)
     env = make_base_env(task)
     try:
         unrewrapped = env.unwrapped
@@ -68,7 +64,7 @@ def probe_dt_env_ns(task: str) -> int:
             return round(1000000000 / float(metadata_fps))
     finally:
         env.close()
-    return int(spec["dt_ns"])
+    return task_spec(task)["dt_ns"]
 
 
 def probe_env_dims(task: str) -> tuple[int, int]:
@@ -81,59 +77,17 @@ def probe_env_dims(task: str) -> tuple[int, int]:
         env.close()
 
 
-def probe_max_episode_steps(task: str) -> int | None:
-    env = make_base_env(task)
-    try:
-        spec = env.spec
-        return int(spec.max_episode_steps) if spec and spec.max_episode_steps else None
-    finally:
-        env.close()
-
-
-def make_latency_env(task: str, latency_ns: int, *, dt_env_ns: int | None = None, **overrides: Any) -> LatencyHoldEnvT:
+def make_latency_env(task: str, latency_ns: int, *, dt_env_ns: int | None = None, **overrides: Any) -> LatencyHoldEnv:
     dt = dt_env_ns if dt_env_ns is not None else probe_dt_env_ns(task)
-    env = make_base_env(task, **overrides)
-    return LatencyHoldEnv(env, latency_ns=latency_ns, dt_env_ns=dt)
-
-
-def expected_dt_env_ns(task: str) -> int:
-    return int(task_spec(task)["dt_ns"])
-
-
-def assert_dt_env_ns_matches(task: str) -> int:
-    probed = probe_dt_env_ns(task)
-    expected = expected_dt_env_ns(task)
-    assert probed == expected, (
-        f"{task}: probed timestep {probed} ns but expected {expected} ns. Gymnasium's integration timestep changed, which invalidates the latency-to-action-step mapping (PLAN.md section 5.1)."
-    )
-    return probed
-
-
-def make_vector_env(task: str, num_envs: int, latency_ns: int) -> gym.vector.SyncVectorEnv:
-    pass
-
-    def make_one() -> LatencyHoldEnvT:
-        return make_latency_env(task, latency_ns)
-
-    return gym.vector.SyncVectorEnv([make_one for _ in range(num_envs)])
+    return LatencyHoldEnv(make_base_env(task, **overrides), latency_ns=latency_ns, dt_env_ns=dt)
 
 
 __all__ = [
-    "CARTPOLE_DT_NS",
-    "CARTPOLE_MAX_EPISODE_STEPS",
-    "LUNARLANDER_DT_NS",
-    "LUNARLANDER_SOLVED_SCORE",
     "NATIVE_DT_ENV_NS",
-    "LatencyHoldEnv",
     "UnsupportedTaskError",
-    "assert_dt_env_ns_matches",
-    "expected_dt_env_ns",
-    "known_tasks",
     "make_base_env",
     "make_latency_env",
-    "make_vector_env",
     "probe_dt_env_ns",
     "probe_env_dims",
-    "probe_max_episode_steps",
     "task_spec",
 ]

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import torch
-from torch import nn
 
 if TYPE_CHECKING:
     from latency_ml.models.shared_trunk import SharedTrunkPolicy
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class ParameterGroup:
     name: str
-    parameters: list[nn.Parameter]
+    parameters: list[torch.nn.Parameter]
     stepped_on_every_task: bool
 
 
@@ -31,13 +30,12 @@ class TaskPolicy(Protocol):
     def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: ...
     def action_only(self, obs: torch.Tensor) -> torch.Tensor: ...
     def to_device(self, device: torch.device | str) -> None: ...
-    def set_mode(self, training: bool) -> None: ...
-    def is_training(self) -> bool: ...
     def save(self, path: str | Path) -> None: ...
-    def load(self, path: str | Path) -> None: ...
 
 
 class SharedTaskPolicy:
+    """Exposes one task head of a SharedTrunkPolicy through the TaskPolicy protocol."""
+
     def __init__(self, policy: SharedTrunkPolicy, task: str) -> None:
         self.policy = policy
         self.task = task
@@ -60,17 +58,10 @@ class SharedTaskPolicy:
         return self.forward(obs)
 
     def forward(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        logits, value = self.policy(obs, self.task)
-        return (logits, value)
+        return self.policy(obs, self.task)
 
     def to_device(self, device: torch.device | str) -> None:
         self.policy.to(device)
-
-    def set_mode(self, training: bool) -> None:
-        self.policy.train(training)
-
-    def is_training(self) -> bool:
-        return self.policy.training
 
     def action_and_value(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return self.policy.action_and_value(obs, self.task)
@@ -81,17 +72,10 @@ class SharedTaskPolicy:
     def action_only(self, obs: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
             logits, _ = self.policy(obs, self.task)
-        action: torch.Tensor = logits.argmax(dim=-1)
-        return action
-
-    def describe(self) -> str:
-        return f"shared trunk, task {self.task}"
+        return logits.argmax(dim=-1)
 
     def save(self, path: str | Path) -> None:
         self.policy.save_shared(path)
-
-    def load(self, path: str | Path) -> None:
-        self.policy.load_shared(path)
 
 
 __all__ = ["ParameterGroup", "SharedTaskPolicy", "TaskPolicy"]

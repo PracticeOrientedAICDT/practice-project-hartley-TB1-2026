@@ -21,9 +21,6 @@ class RunCounts:
     decision_transitions: int = 0
     ppo_updates: int = 0
     gradient_steps: int = 0
-    minibatch_size: int = 0
-    num_envs: int = 0
-    steps_per_decision: int = 0
     action_steps: int = 0
     wall_time_s: float = 0.0
 
@@ -37,13 +34,6 @@ class TrainResult:
     wall_time_s: float = 0.0
     planned_iterations: dict[str, int] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "counts": {t: c.to_dict() for t, c in self.counts.items()},
-            "planned_iterations": dict(self.planned_iterations),
-            "wall_time_s": self.wall_time_s,
-        }
-
 
 @dataclass
 class TaskState:
@@ -52,10 +42,11 @@ class TaskState:
     obs_shape: tuple[int, ...]
     counts: RunCounts
     optimisers: list[torch.optim.Optimizer]
-    optimiser_by_group: dict[str, torch.optim.Optimizer]
 
 
 class PPOTrainer:
+    """PPO over one or more task policies sharing a fixed integration-step budget."""
+
     def __init__(
         self,
         config: ProjectConfig,
@@ -72,7 +63,6 @@ class PPOTrainer:
         self.policies = dict(policies)
         self.latency_ns = latency_ns
         self.device = torch.device(device)
-        self.seed_offset = seed_offset
         if seeds is not None:
             self.seeds = dict(seeds)
             missing = set(self.tasks) - set(self.seeds)
@@ -89,9 +79,7 @@ class PPOTrainer:
         self.initial_lr = config.training.learning_rate
         self.states: dict[str, TaskState] = {}
         for task in self.tasks:
-            policy = self.policies[task]
-            policy.to_device(self.device)
-            self.states[task] = self._make_state(task, policy)
+            self.states[task] = self._make_state(task, self.policies[task])
 
     def _make_state(self, task: str, policy: TaskPolicy) -> TaskState:
         from latency_ml.envs.factory import make_latency_env
@@ -101,17 +89,14 @@ class PPOTrainer:
         shape = envs[0].observation_space.shape
         if shape is None:
             raise ValueError(f"{task} environment reported no observation shape")
-        counts = RunCounts(num_envs=cfg.num_envs, steps_per_decision=cfg.steps_per_decision)
-        counts.action_steps = envs[0].action_steps
-        counts.minibatch_size = cfg.minibatch_size(counts.action_steps)
-        optimisers: list[torch.optim.Optimizer] = [torch.optim.Adam(group.parameters, lr=self.initial_lr, eps=1e-05) for group in policy.parameter_groups()]
+        counts = RunCounts(action_steps=envs[0].action_steps)
+        optimisers = [torch.optim.Adam(group.parameters, lr=self.initial_lr, eps=1e-05) for group in policy.parameter_groups()]
         return TaskState(
             task=task,
             envs=envs,
             obs_shape=(int(shape[0]),),
             counts=counts,
             optimisers=optimisers,
-            optimiser_by_group={group.name: opt for group, opt in zip(policy.parameter_groups(), optimisers, strict=True)},
         )
 
     def planned_iterations(self, budget: int | None = None) -> dict[str, int]:
@@ -172,7 +157,8 @@ class PPOTrainer:
     def _anneal(self, task: str, budget: int) -> None:
         frac = self.states[task].counts.integration_steps / max(1, budget)
         for optimiser in self.states[task].optimisers:
-            anneal_learning_rate(optimiser, frac, self.initial_lr)
+            for group in optimiser.param_groups:
+                group["lr"] = self.initial_lr * (1.0 - min(max(frac, 0.0), 1.0))
 
     def _collect(self, task: str, current_obs: torch.Tensor) -> tuple[RolloutBuffer, torch.Tensor]:
         cfg = self.config.training
@@ -184,27 +170,26 @@ class PPOTrainer:
         for _ in range(cfg.steps_per_decision):
             with torch.no_grad():
                 actions, log_probs, value = policy.action_and_value(current_obs)
-            next_obs_list: list[np.ndarray] = []
-            final_obs_list: list[np.ndarray] = []
             rewards = torch.zeros(num_envs)
             terminateds = torch.zeros(num_envs)
             truncateds = torch.zeros(num_envs)
             durations = torch.zeros(num_envs)
+            next_obs_list: list[np.ndarray] = []
+            final_obs_list: list[np.ndarray] = []
             for i, env in enumerate(envs):
                 obs_i, reward, terminated, truncated, info = env.step(int(actions[i].item()))
                 rewards[i] = reward
                 terminateds[i] = float(terminated)
                 truncateds[i] = float(truncated)
                 durations[i] = float(info.get(HOLD_STEPS_KEY, state.counts.action_steps))
-                final_obs_list.append(np.asarray(obs_i, dtype=np.float32).copy())
+                final_obs_list.append(np.asarray(obs_i, dtype=np.float32))
                 next_obs_list.append(obs_i)
             with torch.no_grad():
                 _, final_values = policy(torch.as_tensor(np.stack(final_obs_list), dtype=torch.float32, device=self.device))
             for i, env in enumerate(envs):
                 if terminateds[i] > 0.0 or truncateds[i] > 0.0:
                     env.release_terminal()
-                    obs_i, _ = env.reset()
-                    next_obs_list[i] = obs_i
+                    next_obs_list[i] = env.reset()[0]
             buffer.add(
                 obs=current_obs,
                 actions=actions,
@@ -223,12 +208,7 @@ class PPOTrainer:
             gamma, lam, duration_aware = (0.999, 0.98, False)
         else:
             gamma, lam, duration_aware = (cfg.gamma_phys, cfg.gae_lambda_phys, True)
-        buffer.compute_returns(
-            last_value=value_tensor(last_value),
-            gamma_phys=gamma,
-            gae_lambda_phys=lam,
-            duration_aware=duration_aware,
-        )
+        buffer.compute_returns(last_value=last_value, gamma_phys=gamma, gae_lambda_phys=lam, duration_aware=duration_aware)
         return (buffer, current_obs)
 
     def _update(self, task: str, buffer: RolloutBuffer) -> int:
@@ -245,16 +225,16 @@ class PPOTrainer:
                 mb = indices[start : start + minibatch_size]
                 new_log_probs, entropy, new_values, _ = policy.evaluate_actions(batch.obs[mb], batch.actions[mb])
                 log_ratio = new_log_probs - batch.log_probs[mb]
-                logratio2 = log_ratio.clamp(1 - cfg.clip_coef, 1 + cfg.clip_coef)
-                loss1 = -log_ratio * batch.advantages[mb]
-                loss2 = -logratio2 * batch.advantages[mb]
-                pg_loss = torch.max(loss1, loss2).mean()
+                pg_loss = torch.max(-log_ratio * batch.advantages[mb], -log_ratio.clamp(1 - cfg.clip_coef, 1 + cfg.clip_coef) * batch.advantages[mb]).mean()
                 new_values_clipped = batch.values[mb] + (new_values - batch.values[mb]).clamp(-cfg.clip_coef, cfg.clip_coef)
-                v_loss_unclipped = (new_values - batch.returns[mb]) ** 2
-                v_loss_clipped = (new_values_clipped - batch.returns[mb]) ** 2
-                v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
-                entropy_loss = entropy.mean()
-                loss = pg_loss - cfg.ent_coef * entropy_loss + cfg.vf_coef * v_loss
+                v_loss = (
+                    0.5
+                    * torch.max(
+                        (new_values - batch.returns[mb]) ** 2,
+                        (new_values_clipped - batch.returns[mb]) ** 2,
+                    ).mean()
+                )
+                loss = pg_loss - cfg.ent_coef * entropy.mean() + cfg.vf_coef * v_loss
                 for optimiser in state.optimisers:
                     optimiser.zero_grad()
                 loss.backward()
@@ -278,11 +258,6 @@ class PPOTrainer:
                 raise AssertionError(f"{task}: consumed {counts.integration_steps} integration steps, exceeding its {expected}-step budget")
 
 
-def value_tensor(value: torch.Tensor | None) -> torch.Tensor:
-    assert value is not None, "rollout requires a value head"
-    return value
-
-
 def anneal_learning_rate(optimizer: torch.optim.Optimizer, frac: float, initial_lr: float) -> float:
     new_lr = initial_lr * (1.0 - min(max(frac, 0.0), 1.0))
     for group in optimizer.param_groups:
@@ -290,11 +265,4 @@ def anneal_learning_rate(optimizer: torch.optim.Optimizer, frac: float, initial_
     return new_lr
 
 
-__all__ = [
-    "PPOTrainer",
-    "RunCounts",
-    "TaskState",
-    "TrainResult",
-    "anneal_learning_rate",
-    "value_tensor",
-]
+__all__ = ["PPOTrainer", "RunCounts", "TrainResult", "anneal_learning_rate"]

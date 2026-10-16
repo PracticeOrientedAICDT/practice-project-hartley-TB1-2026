@@ -13,13 +13,14 @@ class Batch:
     advantages: torch.Tensor
     returns: torch.Tensor
     values: torch.Tensor
-    durations: torch.Tensor
 
     def __len__(self) -> int:
         return int(self.obs.shape[0])
 
 
 class RolloutBuffer:
+    """Fixed-shape storage for one PPO rollout with variable hold durations."""
+
     def __init__(self, num_steps: int, num_envs: int, obs_shape: tuple[int, ...]) -> None:
         self.num_steps = num_steps
         self.num_envs = num_envs
@@ -30,7 +31,6 @@ class RolloutBuffer:
         self.log_probs = torch.zeros(shape, dtype=torch.float32)
         self.rewards = torch.zeros(shape, dtype=torch.float32)
         self.dones = torch.zeros(shape, dtype=torch.float32)
-        self.dones = torch.zeros(shape, dtype=torch.float32)
         self.truncations = torch.zeros(shape, dtype=torch.float32)
         self.trunc_values = torch.zeros(shape, dtype=torch.float32)
         self.values = torch.zeros(shape, dtype=torch.float32)
@@ -39,16 +39,9 @@ class RolloutBuffer:
         self.returns = torch.zeros(shape, dtype=torch.float32)
         self.ptr = 0
 
-    def reset(self) -> None:
-        self.ptr = 0
-
     @property
     def full(self) -> bool:
         return self.ptr >= self.num_steps
-
-    @property
-    def size(self) -> int:
-        return self.ptr * self.num_envs
 
     @property
     def total_duration(self) -> int:
@@ -63,8 +56,8 @@ class RolloutBuffer:
         dones: torch.Tensor,
         values: torch.Tensor,
         durations: torch.Tensor,
-        truncations: torch.Tensor | None = None,
-        trunc_values: torch.Tensor | None = None,
+        truncations: torch.Tensor,
+        trunc_values: torch.Tensor,
     ) -> None:
         assert not self.full, "rollout buffer is full"
         i = self.ptr
@@ -75,10 +68,8 @@ class RolloutBuffer:
         self.dones[i] = dones
         self.values[i] = values
         self.durations[i] = durations
-        if truncations is not None:
-            self.truncations[i] = truncations
-        if trunc_values is not None:
-            self.trunc_values[i] = trunc_values
+        self.truncations[i] = truncations
+        self.trunc_values[i] = trunc_values
         self.ptr += 1
 
     def _next_values(self, step: int, last_value: torch.Tensor) -> torch.Tensor:
@@ -98,32 +89,20 @@ class RolloutBuffer:
         gae_lambda_phys: float,
         duration_aware: bool = True,
     ) -> None:
-        if not duration_aware:
-            self._compute_returns_standard(last_value, gamma_phys, gae_lambda_phys)
-            return
-        durations = self.durations[: self.ptr]
-        gamma_base = torch.as_tensor(gamma_phys, dtype=torch.float32)
-        lambda_base = torch.as_tensor(gae_lambda_phys, dtype=torch.float32)
-        gammas = torch.pow(gamma_base, durations)
-        lambdas = torch.pow(lambda_base, durations)
+        gamma: float | torch.Tensor = gamma_phys
+        lam: float | torch.Tensor = gae_lambda_phys
+        if duration_aware:
+            durations = self.durations[: self.ptr]
+            gamma = torch.pow(gamma_phys, durations)
+            lam = torch.pow(gae_lambda_phys, durations)
         last_gae = torch.zeros(self.num_envs, dtype=torch.float32)
         for step in reversed(range(self.ptr)):
             next_values = self._next_values(step, last_value)
             not_terminal = 1.0 - self.dones[step]
-            gamma_t = gammas[step]
-            lambda_t = lambdas[step]
+            gamma_t = gamma[step] if duration_aware else gamma
+            lambda_t = lam[step] if duration_aware else lam
             delta = self.rewards[step] + gamma_t * next_values * not_terminal - self.values[step]
             last_gae = delta + gamma_t * lambda_t * self._same_episode(step) * last_gae
-            self.advantages[step] = last_gae
-        self.returns[: self.ptr] = self.advantages[: self.ptr] + self.values[: self.ptr]
-
-    def _compute_returns_standard(self, last_value: torch.Tensor, gamma_phys: float, gae_lambda_phys: float) -> None:
-        last_gae = torch.zeros(self.num_envs, dtype=torch.float32)
-        for step in reversed(range(self.ptr)):
-            next_values = self._next_values(step, last_value)
-            not_terminal = 1.0 - self.dones[step]
-            delta = self.rewards[step] + gamma_phys * next_values * not_terminal - self.values[step]
-            last_gae = delta + gamma_phys * gae_lambda_phys * self._same_episode(step) * last_gae
             self.advantages[step] = last_gae
         self.returns[: self.ptr] = self.advantages[: self.ptr] + self.values[: self.ptr]
 
@@ -139,5 +118,4 @@ class RolloutBuffer:
             advantages=advantages,
             returns=self.returns[flat].reshape(-1),
             values=self.values[flat].reshape(-1),
-            durations=self.durations[flat].reshape(-1),
         )

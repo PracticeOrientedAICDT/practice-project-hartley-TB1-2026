@@ -1,16 +1,3 @@
 extends: base.yaml
 project:
   task: lunarlander
-timing:
-  environment_timestep_ns: 20000000
-training:
-  total_integration_steps: 4000000
-  control_training_seeds: 10
-evaluation:
-  control_episodes_per_seed: 200
-policy:
-  control_hidden_layers: [128, 128]
-environment_kwargs:
-  continuous: false
-  gravity: -10.0
-  enable_wind: false
