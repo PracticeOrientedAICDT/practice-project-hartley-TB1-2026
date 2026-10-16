@@ -30,7 +30,10 @@ def _push_rows() -> list[dict]:
             "mean_tts_frames": 20.0,
             "mean_tts_decisions": 20.0,
             "mean_tts_ms": 400.0,
+            "mean_tts_frames_penalized": 65.0,
+            "mean_tts_ms_penalized": 1300.0,
             "per_seed_tts_frames": [18.0, 22.0],
+            "per_seed_tts_frames_penalized": [60.0, 70.0],
         },
         {
             "latency_ns": 100000000,
@@ -41,7 +44,10 @@ def _push_rows() -> list[dict]:
             "mean_tts_frames": 120.0,
             "mean_tts_decisions": 24.0,
             "mean_tts_ms": 2400.0,
+            "mean_tts_frames_penalized": 310.0,
+            "mean_tts_ms_penalized": 6200.0,
             "per_seed_tts_frames": [100.0, 140.0],
+            "per_seed_tts_frames_penalized": [300.0, 320.0],
         },
     ]
 
@@ -71,6 +77,8 @@ def test_build_site_overlays_both_activations(tmp_path):
     assert charts.count("<polyline") == 4  # relu + capped-relu on each chart
     assert "cartpole - dedicated control" in html
     assert "cartpole - dedicated push recovery" in html
+    assert "failing more can&#x27;t improve the mean" in html or "failing more can't improve the mean" in html
+    assert "1300" in html  # penalized, not success-only, TTS in the table
     assert "20 ms" in html and "100 ms" in html
     assert "PPO hyperparameters" in html
     assert "dedicated cartpole" in html

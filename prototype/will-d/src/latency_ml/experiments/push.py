@@ -68,6 +68,7 @@ class PushResult:
     action_steps: int
     dt_env_ns: int
     trials: list[PushTrial]
+    horizon: int = DEFAULT_HORIZON
 
     @property
     def successes(self) -> list[PushTrial]:
@@ -75,6 +76,9 @@ class PushResult:
 
     def summary(self) -> dict[str, Any]:
         tts = [t.tts_frames for t in self.successes]
+        # Penalized mean: failures score the horizon instead of dropping out, so
+        # failing more cannot improve the average. This is the headline metric.
+        pen = [t if t is not None else self.horizon for t in (x.tts_frames for x in self.trials)]
         n = len(self.trials)
         return {
             "task": self.task,
@@ -82,12 +86,15 @@ class PushResult:
             "train_seed": self.train_seed,
             "action_steps": self.action_steps,
             "dt_env_ns": self.dt_env_ns,
+            "horizon": self.horizon,
             "n_trials": n,
             "success_rate": float(len(tts) / n) if n else 0.0,
             "mean_tts_frames": float(mean(tts)) if tts else None,
             "median_tts_frames": float(median(tts)) if tts else None,
             "mean_tts_decisions": float(mean(t.decisions_to_stable for t in self.successes)) if tts else None,
             "mean_tts_ms": float(mean(tts) * self.dt_env_ns / 1e6) if tts else None,
+            "mean_tts_frames_penalized": float(mean(pen)) if pen else None,
+            "mean_tts_ms_penalized": float(mean(pen) * self.dt_env_ns / 1e6) if pen else None,
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -269,6 +276,7 @@ def run_push_trials(
         action_steps=action_steps,
         dt_env_ns=dt,
         trials=records,
+        horizon=horizon,
     )
 
 
@@ -282,6 +290,8 @@ def aggregate_push(results: list[PushResult]) -> list[dict[str, Any]]:
         group = sorted(by[latency_ns], key=lambda r: r.train_seed)
         summaries = [r.summary() for r in group]
         tts_means = [s["mean_tts_frames"] for s in summaries if s["mean_tts_frames"] is not None]
+        pen_means = [s["mean_tts_frames_penalized"] for s in summaries if s["mean_tts_frames_penalized"] is not None]
+        pen_ms = [s["mean_tts_ms_penalized"] for s in summaries if s["mean_tts_ms_penalized"] is not None]
         ms_means = [s["mean_tts_ms"] for s in summaries if s["mean_tts_ms"] is not None]
         dec_means = [s["mean_tts_decisions"] for s in summaries if s["mean_tts_decisions"] is not None]
         out.append(
@@ -294,7 +304,10 @@ def aggregate_push(results: list[PushResult]) -> list[dict[str, Any]]:
                 "mean_tts_frames": float(mean(tts_means)) if tts_means else None,
                 "mean_tts_decisions": float(mean(dec_means)) if dec_means else None,
                 "mean_tts_ms": float(mean(ms_means)) if ms_means else None,
+                "mean_tts_frames_penalized": float(mean(pen_means)) if pen_means else None,
+                "mean_tts_ms_penalized": float(mean(pen_ms)) if pen_ms else None,
                 "per_seed_tts_frames": [s["mean_tts_frames"] for s in summaries],
+                "per_seed_tts_frames_penalized": [s["mean_tts_frames_penalized"] for s in summaries],
             }
         )
     return out

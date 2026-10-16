@@ -210,6 +210,8 @@ def _control_card(title: str, groups: dict[str, dict], yrange: tuple[float, floa
 
 
 def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str:
+    from latency_ml.experiments import push as push_mod
+
     acts = [a for a, _, _ in ACTIVATIONS if a in groups]
     sweeps = {a: str(groups[a].get("sweep_id", "")) for a in acts}
     latencies = sorted({int(r["latency_ns"]) for a in acts for r in groups[a].get("per_latency", [])})
@@ -217,31 +219,36 @@ def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str
     headers = [("latency", "")]
     for a, cls, _ in ACTIVATIONS:
         if a in groups:
-            headers += [(f"{a} tts", cls), (f"{a} ok", cls)]
+            headers += [(f"{a} tts", cls), (f"{a} success", cls)]
     rows = []
     attrs = []
     for lat in latencies:
         row = [_latency_cell(lat)]
         for a in acts:
             r = lookup[a].get(lat, {})
-            row += [_fmt(r.get("mean_tts_ms")), _fmt(r.get("success_rate"), 2)]
+            row += [_fmt(r.get("mean_tts_ms_penalized")), _fmt(r.get("success_rate"), 2)]
         rows.append(row)
         attrs.append(f' data-task="{task}" data-kind="{kind}" data-mode="push" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
     series = []
     for a, _, color in ACTIVATIONS:
         if a not in groups:
             continue
-        pts = [(float(r["latency_ns"]), float(r["mean_tts_ms"])) for r in groups[a].get("per_latency", []) if r.get("mean_tts_ms") is not None]
+        pts = [(float(r["latency_ns"]), float(r["mean_tts_ms_penalized"])) for r in groups[a].get("per_latency", []) if r.get("mean_tts_ms_penalized") is not None]
         err = []
         for r in groups[a].get("per_latency", []):
-            if r.get("mean_tts_ms") is None:
+            if r.get("mean_tts_ms_penalized") is None:
                 continue
-            seeds = [v for v in r.get("per_seed_tts_frames", []) if v is not None]
-            # Push runs on cartpole (20 ms env frames); spread over successful seeds only.
+            seeds = [v for v in r.get("per_seed_tts_frames_penalized", []) if v is not None]
+            # Push runs on cartpole (20 ms env frames); every seed scores, failures included.
             err.append(float(stdev(seeds)) * 20.0 if len(seeds) > 1 else 0.0)
         series.append((a, color, pts, err))
-    chart = _chart_multi(series, "mean time to stability (ms)", "control latency")
-    caption = "Mean recovery time after a random kick. Click a row to watch the rollouts."
+    chart = _chart_multi(series, "mean time to stability, failures at horizon (ms)", "control latency")
+    horizon_ms = push_mod.DEFAULT_HORIZON * 20
+    caption = (
+        "Mean recovery time after a random kick. Failed trials count at the "
+        f"{push_mod.DEFAULT_HORIZON}-frame horizon (about {horizon_ms} ms), so failing more can't improve the mean - "
+        "read it with the success column. Click a row to watch the rollouts."
+    )
     return f"<div class='card'><h2>{html.escape(title)}</h2>{_table(headers, rows, attrs)}<figure>{chart}<figcaption>{caption}</figcaption></figure></div>"
 
 
@@ -397,7 +404,7 @@ def _details_tab(results: Path) -> str:
         ["horizon", f"{push_mod.DEFAULT_HORIZON} env frames"],
         ["kick (external force)", f"± {push_mod.KICK_FORCE_N:g} N on the cart for {push_mod.KICK_STEPS:d} env frames (120 ms); policy keeps acting, pose stays continuous"],
         ["stable band", f"|theta| <= {push_mod.STABLE_THETA_RAD:g} rad and |theta-dot| <= {push_mod.STABLE_THETA_DOT:g} rad/s, held {push_mod.STABLE_HOLD_STEPS} env frames"],
-        ["time to stability", "env frames from kick to the start of the first stable window (None = censored)"],
+        ["time to stability", "env frames from kick to the start of the first stable window (None = censored); the headline mean scores failures at the horizon"],
         ["success rate", "fraction of trials with a measured TTS"],
         ["trial seeds", "derive_seed(config.seed + 500000, latency, train_seed, trial)"],
     ]

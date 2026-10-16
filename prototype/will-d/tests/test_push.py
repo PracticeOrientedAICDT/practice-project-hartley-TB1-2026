@@ -35,7 +35,7 @@ class _AlwaysLeftPolicy:
         raise AssertionError("not used")
 
 
-def _result(latency_ns: int, train_seed: int, trials: list[PushTrial]) -> PushResult:
+def _result(latency_ns: int, train_seed: int, trials: list[PushTrial], horizon: int = 500) -> PushResult:
     return PushResult(
         task="cartpole",
         latency_ns=latency_ns,
@@ -43,6 +43,7 @@ def _result(latency_ns: int, train_seed: int, trials: list[PushTrial]) -> PushRe
         action_steps=1,
         dt_env_ns=20000000,
         trials=trials,
+        horizon=horizon,
     )
 
 
@@ -60,6 +61,18 @@ def test_summary_counts_successes_and_censors_failures():
     assert summary["median_tts_frames"] == 25.0
     assert summary["mean_tts_decisions"] == 25.0
     assert summary["mean_tts_ms"] == pytest.approx(500.0)
+
+
+def test_penalized_mean_scores_failures_at_horizon():
+    trials = [PushTrial(1, 10, 10, False), PushTrial(2, None, None, True)]
+    summary = _result(20000000, 0, trials, horizon=500).summary()
+    assert summary["success_rate"] == 0.5
+    assert summary["mean_tts_frames"] == 10.0  # successes only
+    assert summary["mean_tts_frames_penalized"] == 255.0  # (10 + 500) / 2
+    assert summary["mean_tts_ms_penalized"] == pytest.approx(5100.0)
+    rows = aggregate_push([_result(20000000, 0, trials, horizon=500)])
+    assert rows[0]["mean_tts_frames_penalized"] == 255.0
+    assert rows[0]["per_seed_tts_frames_penalized"] == [255.0]
 
 
 def test_aggregate_groups_by_latency_and_averages_seeds():
