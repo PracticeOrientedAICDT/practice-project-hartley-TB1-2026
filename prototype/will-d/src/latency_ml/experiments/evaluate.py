@@ -91,6 +91,10 @@ def load_policy(config: ProjectConfig, task: str, activation: Any = None) -> Tas
         from latency_ml.experiments.runner import make_activation
 
         activation = make_activation(activation)
+    if activation == "hartree":
+        from latency_ml.models.hartree import build_hartree_policy
+
+        return build_hartree_policy(task)
     from latency_ml.models.architectures import build_control_policy
 
     return build_control_policy(task, activation=activation)

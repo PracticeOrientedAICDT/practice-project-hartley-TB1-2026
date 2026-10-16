@@ -20,7 +20,11 @@ def _act(value: str | None) -> str:
     if not value:
         return "capped-relu"
     v = value.strip().lower()
-    return "relu" if v in ("relu", "torch-relu", "unbounded") else "capped-relu"
+    if v in ("relu", "torch-relu", "unbounded"):
+        return "relu"
+    if v in ("hartree", "hmlp-ti", "hti"):
+        return "hartree"
+    return "capped-relu"
 
 
 def _default_config(phase: str) -> Path:
@@ -41,7 +45,11 @@ def _normalise_seeds(config, values):
 
 
 def _eval_activation(activation: str):
-    return make_activation("relu") if activation == "relu" else make_activation("capped-relu")
+    if activation == "relu":
+        return make_activation("relu")
+    if activation == "hartree":
+        return "hartree"
+    return make_activation("capped-relu")
 
 
 def _evaluate_dedicated(config, sweep_id, root, episodes, activation) -> None:
@@ -110,6 +118,9 @@ def _cmd_train(args) -> int:
     activation = _act(args.activation)
     root = Path(args.root)
     phase = args.phase
+    if activation == "hartree" and phase != "cartpole":
+        print("hartree arm is cartpole-dedicated for now (use --phase cartpole)", file=sys.stderr)
+        return 2
     config = load_config(Path(args.config) if args.config else _default_config(phase))
     latencies = _normalise_latencies(config, args.latencies)
     seeds = _normalise_seeds(config, args.seeds)
@@ -210,7 +221,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
     tr = sub.add_parser("train", help="Train one phase / activation sweep.")
     tr.add_argument("--phase", choices=["cartpole", "lunarlander", "shared"], default="cartpole")
-    tr.add_argument("--activation", choices=["relu", "capped-relu"], default="capped-relu")
+    tr.add_argument("--activation", choices=["relu", "capped-relu", "hartree"], default="capped-relu")
     tr.add_argument("--config", default=None)
     tr.add_argument("--sweep-id", required=True)
     tr.add_argument("--latencies", type=int, nargs="*", default=None)
@@ -229,7 +240,7 @@ def _build_parser() -> argparse.ArgumentParser:
     pu.add_argument("--config", default=None)
     pu.add_argument("--latencies", type=int, nargs="*", default=None)
     pu.add_argument("--seeds", type=int, nargs="*", default=None)
-    pu.add_argument("--activation", choices=["relu", "capped-relu"], default="capped-relu")
+    pu.add_argument("--activation", choices=["relu", "capped-relu", "hartree"], default="capped-relu")
     pu.add_argument("--trials", type=int, default=20)
     pu.add_argument("--horizon", type=int, default=500)
     pu.add_argument("--root", type=Path, default=DEFAULT_RESULTS_ROOT)

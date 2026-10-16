@@ -268,6 +268,8 @@ def write_video(
 
 
 def _activation_for(sweep_id: str, root: Path) -> str:
+    if sweep_id.endswith("-hartree"):
+        return "hartree"
     if sweep_id.endswith("-capped"):
         return "capped-relu"
     if sweep_id.endswith("-relu"):

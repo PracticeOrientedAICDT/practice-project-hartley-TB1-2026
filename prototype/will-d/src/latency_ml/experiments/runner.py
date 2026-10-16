@@ -39,6 +39,8 @@ def make_activation(name: str | None):
         import torch.nn as nn
 
         return nn.ReLU()
+    if name == "hartree":
+        return "hartree"
     from latency_ml.models.architectures import bounded_relu
 
     return bounded_relu()
@@ -66,10 +68,21 @@ def run_cell(
     try:
         seed_everything(seed)
         act = make_activation(activation) if isinstance(activation, str) or activation is None else activation
-        policy = build_control_policy(config.task, activation=act)
+        if act == "hartree":
+            from latency_ml.models.hartree import build_hartree_policy
+
+            policy = build_hartree_policy(config.task)
+        else:
+            policy = build_control_policy(config.task, activation=act)
         trainer = PPOTrainer(config, {config.task: policy}, cell.latency_ns, seeds={config.task: seed})
         trainer.learn(total_integration_steps=total_integration_steps)
         policy.save(dirp / "policy.pt")
+        try:
+            close = getattr(policy, "close", None)
+            if callable(close):
+                close()
+        except Exception:
+            pass
         counts = trainer.states[config.task].counts if hasattr(trainer, "states") else None
         return CellOutcome(run_id=rid, status="completed", counts=counts)
     except Exception as error:  # one bad cell must not kill the sweep

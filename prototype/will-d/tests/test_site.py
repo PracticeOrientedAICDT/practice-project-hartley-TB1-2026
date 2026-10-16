@@ -4,7 +4,8 @@ import json
 import re
 from pathlib import Path
 
-from scripts.build_site import _nice_ticks, build_site
+import pytest
+from scripts.build_site import _activation_of, _nice_ticks, build_site
 
 
 def _write(path: Path, payload: dict) -> None:
@@ -135,3 +136,53 @@ def test_build_site_handles_empty_results(tmp_path):
     charts = html.split("tab-charts")[1].split("tab-details")[0]
     assert "<table>" not in charts
     assert "PPO hyperparameters" in html  # method details render regardless
+
+
+def test_activation_of_handles_hartree():
+    assert _activation_of("cp-hartree") == "hartree"
+    assert _activation_of("cp-capped") == "capped-relu"
+    assert _activation_of("cp-relu") == "relu"
+
+
+def test_build_site_three_arms(tmp_path):
+    results = tmp_path / "results"
+    for sweep in ("cp-relu", "cp-capped", "cp-hartree"):
+        _write(results / sweep / "evaluation.json", _eval_payload(sweep))
+        (results / sweep / "cartpole").mkdir(parents=True, exist_ok=True)
+    out = build_site(results, tmp_path / "site" / "index.html")
+    html = out.read_text()
+    charts = html.split("tab-charts")[1].split("tab-details")[0]
+    assert "hartree return" in charts
+    assert "hartree fail" in charts
+    assert "cartpole - dedicated hartree runs" in html
+    assert charts.count("<polyline") == 3  # 2 on the main card + 1 on the bottom hartree card
+    assert charts.count("<table>") == 2  # main control card + bottom hartree card
+    main, bottom = charts.split("hartree runs")[0], charts.split("hartree runs")[1]
+    assert "hartree return" not in main  # main card stays relu vs capped-relu only
+    assert bottom.count("<polyline") == 1
+    assert 'data-hartree="cp-hartree"' in html
+    assert "modal-hartree" in html
+
+
+def test_hartree_policy_forward_and_save(tmp_path):
+    backend = pytest.importorskip("latency_ml.models.hartree")
+    if not backend.HARTREE_AVAILABLE:
+        pytest.skip("private hmlp-ti not vendored")
+    import torch
+    from latency_ml.models.hartree import build_hartree_policy, clamp_codes
+
+    policy = build_hartree_policy("cartpole")
+    assert all(not par.requires_grad for par in policy.trunk.parameters())
+    logits, value = policy(torch.randn(4, 4))
+    assert tuple(logits.shape) == (4, 2)
+    assert tuple(value.shape) == (4,)
+    grouped = [p for group in policy.parameter_groups() for p in group.parameters]
+    assert grouped and all(p.requires_grad for p in grouped)
+    trainable = {n for n, par in policy.named_parameters() if par.requires_grad}
+    assert not any(n.startswith("trunk") for n in trainable)
+    assert any(n.startswith("critic") for n in trainable)
+    clamp_codes(policy.trunk)
+    path = tmp_path / "policy.pt"
+    policy.save(path)
+    assert path.exists()
+    policy.close()

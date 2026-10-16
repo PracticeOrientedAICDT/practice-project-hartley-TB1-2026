@@ -1,8 +1,9 @@
-"""Static results site: tabbed viewer with overlaid relu-vs-capped charts and rollout videos."""
+"""Static results site: tabbed viewer with overlaid activation charts and rollout videos."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import html
 import json
 import math
@@ -17,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from latency_ml.timing import derive_icdi, format_ns
 
 CSS = """
-:root { color-scheme: light dark; --ink: #111827; --muted: #6b7280; --line: #e8ebf0; --accent: #2563eb; --orange: #ea580c; }
+:root { color-scheme: light dark; --ink: #111827; --muted: #6b7280; --line: #e8ebf0; --accent: #2563eb; --orange: #ea580c; --green: #16a34a; }
 * { box-sizing: border-box; }
 body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif; color: var(--ink); margin: 0; background: #fafbfc; }
 main { max-width: 1280px; margin: 0 auto; padding: 40px 24px 72px; }
@@ -36,8 +37,8 @@ table { border-collapse: collapse; width: 100%; margin: 0 0 20px; font-size: 13.
 tr[data-ms] { cursor: pointer; }
 #modal { position: fixed; inset: 0; z-index: 50; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(10, 15, 30, .55); }
-.modal-box { position: relative; max-width: 960px; margin: 6vh auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; }
-.modal-vids { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.modal-box { position: relative; max-width: 1080px; margin: 6vh auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; }
+.modal-vids { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
 .modal-vids p { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
 .modal-x { position: absolute; top: 10px; right: 14px; font-size: 20px; border: none; background: none; cursor: pointer; color: var(--muted); }
 th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -46,6 +47,7 @@ thead th { color: var(--muted); font-weight: 500; font-size: 11.5px; }
 tbody tr:hover { background: #f4f7fd; }
 th.relu, td.relu { color: var(--accent); }
 th.capped, td.capped { color: var(--orange); }
+th.hartree, td.hartree { color: var(--green); }
 figure { margin: 0; }
 figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
 svg { display: block; width: 100%; height: auto; }
@@ -70,10 +72,15 @@ function closeModal() {
 }
 function openModal(row) {
   const d = row.dataset;
-  const firstUrl = VIDEOS[d.relu + '|' + d.task + '|' + d.ms + '|' + d.mode];
+  const key = (s) => s + '|' + d.task + '|' + d.ms + '|' + d.mode;
+  const firstUrl = VIDEOS[key(d.relu)] || VIDEOS[key(d.hartree)];
   const trial = d.mode === 'push' && firstUrl ? ' - push trial ' + (firstUrl.match(/push_t(\\d+)/) || [])[1] : '';
   document.getElementById('modal-title').textContent = d.task + ' - ' + d.kind + ' - ' + d.ms + ' ms' + trial;
-  [['relu', 'modal-relu', 'modal-label-relu', d.relu, 'relu'], ['capped', 'modal-capped', 'modal-label-capped', d.capped, 'capped-relu']].forEach(([slot, vid, lab, sweep, name]) => {
+  const slots = [['relu', 'modal-relu', 'modal-label-relu', d.relu], ['capped', 'modal-capped', 'modal-label-capped', d.capped]];
+  slots.push(['hartree', 'modal-hartree', 'modal-label-hartree', d.hartree]);
+  slots.forEach(([slot, vid, lab, sweep]) => {
+    const name = slot === 'capped' ? 'capped-relu' : slot;
+    if (!sweep) { document.getElementById(lab).textContent = name + ' - no sweep yet'; document.getElementById(vid).removeAttribute('src'); return; }
     const v = document.getElementById(vid);
     const url = VIDEOS[sweep + '|' + d.task + '|' + d.ms + '|' + d.mode];
     document.getElementById(lab).textContent = url ? name : name + ' - no recording yet (run latency-ml render)';
@@ -86,7 +93,7 @@ document.querySelectorAll('#modal [data-close]').forEach(el => el.addEventListen
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 """
 
-ACTIVATIONS = (("relu", "var(--accent)", "#2563eb"), ("capped-relu", "var(--orange)", "#ea580c"))
+ACTIVATIONS = (("relu", "var(--accent)", "#2563eb"), ("capped-relu", "var(--orange)", "#ea580c"), ("hartree", "var(--green)", "#16a34a"))
 
 
 def _fmt(value: float | None, digits: int = 1) -> str:
@@ -171,6 +178,8 @@ def _chart_multi(series: list[tuple[str, str, list[tuple[float, float]], list[fl
 
 
 def _activation_of(sweep_id: str) -> str:
+    if sweep_id.endswith("-hartree"):
+        return "hartree"
     return "capped-relu" if sweep_id.endswith("-capped") else "relu"
 
 
@@ -195,7 +204,12 @@ def _control_card(title: str, groups: dict[str, dict], yrange: tuple[float, floa
             r = lookup[a].get(lat, {})
             row += [_fmt(r.get("mean_return")), _fmt(r.get("failure_rate"), 2)]
         rows.append(row)
-        attrs.append(f' data-task="{task}" data-kind="{kind}" data-mode="control" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
+        ms = lat // 1_000_000
+        attrs.append(
+            f' data-task="{task}" data-kind="{kind}" data-mode="control" data-ms="{ms}"'
+            f' data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"'
+            f' data-hartree="{sweeps.get("hartree", "")}"'
+        )
     series = []
     for a, _, color in ACTIVATIONS:
         if a not in groups:
@@ -228,7 +242,12 @@ def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str
             r = lookup[a].get(lat, {})
             row += [_fmt(r.get("mean_tts_ms_penalized")), _fmt(r.get("success_rate"), 2)]
         rows.append(row)
-        attrs.append(f' data-task="{task}" data-kind="{kind}" data-mode="push" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
+        ms = lat // 1_000_000
+        attrs.append(
+            f' data-task="{task}" data-kind="{kind}" data-mode="push" data-ms="{ms}"'
+            f' data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"'
+            f' data-hartree="{sweeps.get("hartree", "")}"'
+        )
     series = []
     for a, _, color in ACTIVATIONS:
         if a not in groups:
@@ -340,9 +359,33 @@ def _model_stats() -> list[tuple[str, str, int, str]]:
             "activations",
             f"relu = ReLU; capped-relu = ReLU clipped at {clip:g}",
             0,
-            "same parameter count in both arms; only the nonlinearity differs",
+            "same parameter count in both MLP arms; only the nonlinearity differs",
         )
     )
+    try:
+        from latency_ml.models.hartree import HARTREE_WIDTH, build_hartree_policy, hartree_param_count
+
+        hp = build_hartree_policy("cartpole")
+        n = hartree_param_count(hp)
+        with contextlib.suppress(Exception):
+            hp.close()
+        stats.append(
+            (
+                "dedicated cartpole hartree",
+                f"actor: Linear 4-{HARTREE_WIDTH} encoder + frozen hmlp-ti 256-256-256-256 trunk + Linear head; critic: normal MLP",
+                n,
+                "private hmlp-ti emulator (vendor/, gitignored); actor constrained, critic normal",
+            )
+        )
+    except Exception as exc:
+        stats.append(
+            (
+                "dedicated cartpole hartree",
+                "Linear 4-256 encoder + hmlp-ti 256-256-256-256 trunk + Linear heads",
+                0,
+                f"private hmlp-ti emulator not vendored locally ({exc}); train needs prototype/will-d/vendor/",
+            )
+        )
     return stats
 
 
@@ -423,12 +466,16 @@ def _details_tab(results: Path) -> str:
         (
             "Reproduce",
             "<p><code>uv run latency-ml train --phase cartpole --activation relu --sweep-id cp-relu --workers 12 --threads 1</code><br>"
+            "<code>uv run latency-ml train --phase cartpole --activation hartree --sweep-id cp-hartree --workers 4 --threads 1</code> (needs private hmlp-ti in <code>vendor/</code>, gitignored)<br>"
             "<code>uv run latency-ml push --sweep-id cp-relu --task cartpole --activation relu</code><br>"
             "<code>uv run latency-ml render --sweep-id cp-relu</code><br>"
             "<code>uv run latency-ml view --build-only</code></p>"
             "<p>Checkpoints live at <code>results/&lt;sweep&gt;/&lt;task&gt;/&lt;latency&gt;ns/seed&lt;n&gt;/policy.pt</code> "
             "(shared: <code>results/&lt;sweep&gt;/shared/...</code>). "
-            "Re-runs skip cells whose <code>policy.pt</code> exists.</p>",
+            "Re-runs skip cells whose <code>policy.pt</code> exists.</p>"
+            "<p>Hartree arm: obs 4 -&gt; Linear encoder -&gt; sigmoid*255 IN codes (256) -&gt; frozen hmlp-ti "
+            "DeviceTorch (f64, draws=False, inference-only) -&gt; y volts (256) -&gt; Linear actor head; "
+            "the critic is a normal MLP trained cleanly. PPO trains encoder + actor head + critic; Hartree codes never update.</p>",
         ),
     ]
     body = "".join(f"<h3>{title}</h3>{content}" for title, content in sections)
@@ -441,11 +488,12 @@ def build_site(results: Path, out: Path) -> Path:
     controls, control_sweeps = _collect_controls(results)
     pushes = _collect_pushes(results)
     order = [(t, k) for t in ("cartpole", "lunarlander") for k in ("dedicated", "shared")]
+    mlp_activations = ("relu", "capped-relu")
     ranges: dict[str, tuple[float, float]] = {}
     for task in ("cartpole", "lunarlander"):
         vals = []
         for kind in ("dedicated", "shared"):
-            for activation in ("relu", "capped-relu"):
+            for activation in mlp_activations:
                 rows = controls.get((task, kind), {}).get(activation, {}).get("latency_response", [])
                 vals += [float(r["mean_return"]) for r in rows]
         if vals:
@@ -453,10 +501,24 @@ def build_site(results: Path, out: Path) -> Path:
     cards = []
     for task, kind in order:
         if (task, kind) in controls:
-            cards.append(_control_card(f"{task} - {kind} control", controls[(task, kind)], ranges[task], control_sweeps.get((task, kind), {}), task, kind))
+            mlp_groups = {a: d for a, d in controls[(task, kind)].items() if a in mlp_activations}
+            mlp_sweeps = {a: s for a, s in control_sweeps.get((task, kind), {}).items() if a in mlp_activations}
+            if mlp_groups and task in ranges:
+                cards.append(_control_card(f"{task} - {kind} control", mlp_groups, ranges[task], mlp_sweeps, task, kind))
     for task, kind in (("cartpole", "dedicated"), ("cartpole", "shared")):
         if (task, kind) in pushes:
             cards.append(_push_card(f"{task} - {kind} push recovery", pushes[(task, kind)], task, kind))
+    for task, kind in order:
+        hartree_data = controls.get((task, kind), {}).get("hartree")
+        if hartree_data is None:
+            continue
+        vals = [float(r["mean_return"]) for r in hartree_data.get("latency_response", [])]
+        if not vals:
+            continue
+        hrange = (min(vals), max(vals))
+        hgroups = {"hartree": hartree_data}
+        hsweeps = {"hartree": control_sweeps.get((task, kind), {}).get("hartree", "")}
+        cards.append(_control_card(f"{task} - {kind} hartree runs", hgroups, hrange, hsweeps, task, kind))
     charts = f"<div class='cards'>{''.join(cards)}</div>" if cards else "<div class='card'><h2>No results yet</h2><p>Run a sweep first.</p></div>"
 
     clips = _collect_videos(results, out.parent)
@@ -468,6 +530,7 @@ def build_site(results: Path, out: Path) -> Path:
         "<h2 id='modal-title'></h2><div class='modal-vids'>"
         "<div><p id='modal-label-relu'>relu</p><video id='modal-relu' controls playsinline preload='none'></video></div>"
         "<div><p id='modal-label-capped'>capped-relu</p><video id='modal-capped' controls playsinline preload='none'></video></div>"
+        "<div><p id='modal-label-hartree'>hartree</p><video id='modal-hartree' controls playsinline preload='none'></video></div>"
         "</div></div></div>"
     )
 

@@ -241,6 +241,9 @@ class PPOTrainer:
                 nn.utils.clip_grad_norm_(clipped, cfg.max_grad_norm)
                 for optimiser in state.optimisers:
                     optimiser.step()
+                post = getattr(policy, "post_optimizer_step", None)
+                if callable(post):
+                    post()
                 state.counts.gradient_steps += 1
         return n
 
