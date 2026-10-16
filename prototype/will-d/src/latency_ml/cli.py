@@ -177,10 +177,11 @@ def _cmd_render(args) -> int:
 
     render_missing(
         root=Path(args.root),
-        sweep_ids=list(args.sweep_id) or None,
+        sweep_ids=list(args.sweep_id or ()) or None,
         episode_seed=args.episode_seed,
         fps=args.fps,
         max_frames=args.max_frames,
+        modes=("control", "push") if args.mode == "both" else (args.mode,),
         verbose=not args.quiet,
     )
     return 0
@@ -243,6 +244,7 @@ def _build_parser() -> argparse.ArgumentParser:
     re.add_argument("--episode-seed", type=int, default=7)
     re.add_argument("--fps", type=int, default=30)
     re.add_argument("--max-frames", type=int, default=360)
+    re.add_argument("--mode", choices=["control", "push", "both"], default="both")
     re.add_argument("--root", type=Path, default=DEFAULT_RESULTS_ROOT)
     re.add_argument("--quiet", action="store_true")
     return p

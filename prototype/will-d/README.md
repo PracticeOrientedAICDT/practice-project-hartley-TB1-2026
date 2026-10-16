@@ -37,12 +37,13 @@ in env frames and ms, success rate per latency).
 ## Render
 
 Record one rollout video per sweep / task / latency with the median-seed
-policy. Videos open in a popup when you click a table row in the viewer.
-Existing files are skipped.
+policy. `--mode control` records plain episodes (shown from control tables),
+`--mode push` replays push-phase trial 0 with a visible kick (shown from push
+tables). Existing files are skipped.
 
 ```bash
-uv run latency-ml render                  # all sweeps
-uv run latency-ml render --sweep-id cp-relu
+uv run latency-ml render                  # all sweeps, both modes
+uv run latency-ml render --sweep-id cp-relu --mode push
 ```
 
 Writes `results/<sweep>/videos/<task>_<latency>ms_seed<seed>.mp4`.

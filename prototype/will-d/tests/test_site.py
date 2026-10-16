@@ -75,7 +75,8 @@ def test_build_site_overlays_both_activations(tmp_path):
     assert "PPO hyperparameters" in html
     assert "dedicated cartpole" in html
     assert "34,691" in html  # live parameter count, thousands-separated
-    assert 'data-task="cartpole" data-kind="dedicated" data-ms="20"' in html
+    assert 'data-task="cartpole" data-kind="dedicated" data-mode="control" data-ms="20"' in html
+    assert 'data-task="cartpole" data-kind="dedicated" data-mode="push" data-ms="20"' in html
     assert 'data-relu="cp-relu" data-capped="cp-capped"' in html
     assert "id='modal'" in html and "const VIDEOS" in html
 
@@ -87,9 +88,11 @@ def test_build_site_copies_videos_into_site(tmp_path):
     videos = results / "cp-relu" / "videos"
     videos.mkdir(parents=True, exist_ok=True)
     (videos / "cartpole_20ms_seed5.mp4").write_bytes(b"fake-mp4")
+    (videos / "cartpole_20ms_push_t2_seed5.mp4").write_bytes(b"fake-push-mp4")
     out = build_site(results, tmp_path / "site" / "index.html")
     html = out.read_text()
     assert (tmp_path / "site" / "videos" / "cp-relu__cartpole_20ms_seed5.mp4").exists()
+    assert (tmp_path / "site" / "videos" / "cp-relu__cartpole_20ms_push_t2_seed5.mp4").exists()
     assert "<video" in html  # modal player skeleton
     assert "cp-relu__cartpole_20ms_seed5.mp4" in html  # VIDEOS lookup map
     assert "id='modal'" in html

@@ -17,21 +17,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from latency_ml.timing import derive_icdi, format_ns
 
 CSS = """
-:root { color-scheme: light dark; --ink: #1a2233; --muted: #667; --line: #c9d2e0; --accent: #2563eb; --orange: #ea580c; }
+:root { color-scheme: light dark; --ink: #111827; --muted: #6b7280; --line: #e8ebf0; --accent: #2563eb; --orange: #ea580c; }
 * { box-sizing: border-box; }
-body { font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); margin: 0; background: #f6f8fc; }
-main { max-width: 1280px; margin: 0 auto; padding: 32px 20px 64px; }
-h1 { font-size: 22px; margin: 0 0 4px; }
-h2 { font-size: 16px; margin: 0 0 12px; }
-h3 { font-size: 14px; margin: 26px 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.sub { color: var(--muted); margin: 0 0 20px; }
-nav.tabs { display: flex; gap: 8px; margin-bottom: 22px; }
-nav.tabs button { font: inherit; padding: 8px 22px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; color: var(--muted); }
-nav.tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif; color: var(--ink); margin: 0; background: #fafbfc; }
+main { max-width: 1280px; margin: 0 auto; padding: 40px 24px 72px; }
+h1 { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+h2 { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+h3 { font-size: 12px; font-weight: 600; margin: 28px 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.sub { color: var(--muted); margin: 0 0 24px; }
+nav.tabs { display: inline-flex; gap: 2px; margin-bottom: 24px; background: #eef1f5; border-radius: 10px; padding: 3px; }
+nav.tabs button { font: inherit; font-size: 14px; padding: 7px 20px; border: none; border-radius: 8px; background: none; cursor: pointer; color: var(--muted); }
+nav.tabs button.active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
 [hidden] { display: none !important; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 18px; }
-.card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; }
-table { border-collapse: collapse; width: 100%; margin: 0 0 18px; font-size: 13px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 20px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+table { border-collapse: collapse; width: 100%; margin: 0 0 20px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .twrap { overflow-x: auto; }
 tr[data-ms] { cursor: pointer; }
 #modal { position: fixed; inset: 0; z-index: 50; }
@@ -40,22 +40,21 @@ tr[data-ms] { cursor: pointer; }
 .modal-vids { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .modal-vids p { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
 .modal-x { position: absolute; top: 10px; right: 14px; font-size: 20px; border: none; background: none; cursor: pointer; color: var(--muted); }
-th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
-thead th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-tbody tr:hover { background: #eef3ff; }
+thead th { color: var(--muted); font-weight: 500; font-size: 11.5px; }
+tbody tr:hover { background: #f4f7fd; }
 th.relu, td.relu { color: var(--accent); }
 th.capped, td.capped { color: var(--orange); }
 figure { margin: 0; }
-figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
+figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
 svg { display: block; width: 100%; height: auto; }
+svg text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif; }
 .grid { stroke: var(--line); stroke-dasharray: 2 4; }
 .axis { stroke: var(--line); }
-text { fill: var(--muted); font-size: 10px; }
-.videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
-.clip { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-.clip p { margin: 8px 4px 2px; font-size: 12px; color: var(--muted); }
-video { width: 100%; border-radius: 6px; background: #000; }
+text { fill: var(--muted); font-size: 10.5px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+video { width: 100%; border-radius: 8px; background: #000; }
 """
 
 JS = """
@@ -71,10 +70,12 @@ function closeModal() {
 }
 function openModal(row) {
   const d = row.dataset;
-  document.getElementById('modal-title').textContent = d.task + ' - ' + d.kind + ' - ' + d.ms + ' ms';
+  const firstUrl = VIDEOS[d.relu + '|' + d.task + '|' + d.ms + '|' + d.mode];
+  const trial = d.mode === 'push' && firstUrl ? ' - push trial ' + (firstUrl.match(/push_t(\\d+)/) || [])[1] : '';
+  document.getElementById('modal-title').textContent = d.task + ' - ' + d.kind + ' - ' + d.ms + ' ms' + trial;
   [['relu', 'modal-relu', 'modal-label-relu', d.relu, 'relu'], ['capped', 'modal-capped', 'modal-label-capped', d.capped, 'capped-relu']].forEach(([slot, vid, lab, sweep, name]) => {
     const v = document.getElementById(vid);
-    const url = VIDEOS[sweep + '|' + d.task + '|' + d.ms];
+    const url = VIDEOS[sweep + '|' + d.task + '|' + d.ms + '|' + d.mode];
     document.getElementById(lab).textContent = url ? name : name + ' - no recording yet (run latency-ml render)';
     if (url) { v.src = url; v.load(); } else { v.removeAttribute('src'); }
   });
@@ -194,7 +195,7 @@ def _control_card(title: str, groups: dict[str, dict], yrange: tuple[float, floa
             r = lookup[a].get(lat, {})
             row += [_fmt(r.get("mean_return")), _fmt(r.get("failure_rate"), 2)]
         rows.append(row)
-        attrs.append(f' data-task="{task}" data-kind="{kind}" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
+        attrs.append(f' data-task="{task}" data-kind="{kind}" data-mode="control" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
     series = []
     for a, _, color in ACTIVATIONS:
         if a not in groups:
@@ -203,12 +204,9 @@ def _control_card(title: str, groups: dict[str, dict], yrange: tuple[float, floa
         err = [float(r.get("std_across_seeds", 0.0)) for r in groups[a].get("latency_response", [])]
         series.append((a, color, pts, err))
     chart = _chart_multi(series, "mean return", "control latency", ymin=yrange[0], ymax=yrange[1])
-    caption = (
-        "Mean return across seeds, error bars = 1 std across seeds (clipped at the axis). "
-        "Dedicated and shared charts for the same task share the y-axis. "
-        "Blue = relu, orange = capped-relu. Click a row to watch the rollouts."
-    )
-    return f"<div class='card'><h2>{html.escape(title)}</h2>{_table(headers, rows, attrs)}<figure>{chart}<figcaption>{caption}</figcaption></figure></div>"
+    caption = "Mean return across seeds (±1 std). Click a row to watch the rollouts."
+    card = f"<div class='card'><h2>{html.escape(title)}</h2>{_table(headers, rows, attrs)}"
+    return f"{card}<figure>{chart}<figcaption>{caption}</figcaption></figure></div>"
 
 
 def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str:
@@ -228,7 +226,7 @@ def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str
             r = lookup[a].get(lat, {})
             row += [_fmt(r.get("mean_tts_ms")), _fmt(r.get("success_rate"), 2)]
         rows.append(row)
-        attrs.append(f' data-task="{task}" data-kind="{kind}" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
+        attrs.append(f' data-task="{task}" data-kind="{kind}" data-mode="push" data-ms="{lat // 1_000_000}" data-relu="{sweeps.get("relu", "")}" data-capped="{sweeps.get("capped-relu", "")}"')
     series = []
     for a, _, color in ACTIVATIONS:
         if a not in groups:
@@ -243,7 +241,7 @@ def _push_card(title: str, groups: dict[str, dict], task: str, kind: str) -> str
             err.append(float(stdev(seeds)) * 20.0 if len(seeds) > 1 else 0.0)
         series.append((a, color, pts, err))
     chart = _chart_multi(series, "mean time to stability (ms)", "control latency")
-    caption = "Recovery after a random pole kick. Blue = relu, orange = capped-relu. Click a row to watch the rollouts."
+    caption = "Mean recovery time after a random kick. Click a row to watch the rollouts."
     return f"<div class='card'><h2>{html.escape(title)}</h2>{_table(headers, rows, attrs)}<figure>{chart}<figcaption>{caption}</figcaption></figure></div>"
 
 
@@ -281,11 +279,15 @@ def _collect_videos(results: Path, site_dir: Path) -> list[dict[str, str]]:
     for mp4 in sorted(results.glob("*/videos/*.mp4")) if results.exists() else []:
         sweep = mp4.parent.parent.name
         kind = "shared" if (mp4.parent.parent / "shared").exists() else "dedicated"
-        task = mp4.stem.split("_", 1)[0]
+        stem = mp4.stem.split("__", 1)[1] if "__" in mp4.stem else mp4.stem
+        match = re.match(r"^(.+)_(\d+)ms(_push_t\d+)?_seed\d+$", stem)
+        if match is None:
+            continue
         dest = dest_dir / f"{sweep}__{mp4.name}"
         if not dest.exists() or dest.stat().st_size != mp4.stat().st_size:
             shutil.copy2(mp4, dest)
-        clips.append({"sweep": sweep, "kind": kind, "task": task, "file": dest.name, "activation": _activation_of(sweep)})
+        mode = "push" if match.group(3) else "control"
+        clips.append({"sweep": sweep, "kind": kind, "task": match.group(1), "ms": match.group(2), "mode": mode, "file": dest.name, "activation": _activation_of(sweep)})
     return clips
 
 
@@ -451,11 +453,7 @@ def build_site(results: Path, out: Path) -> Path:
     charts = f"<div class='cards'>{''.join(cards)}</div>" if cards else "<div class='card'><h2>No results yet</h2><p>Run a sweep first.</p></div>"
 
     clips = _collect_videos(results, out.parent)
-    lookup = {}
-    for clip in clips:
-        match = re.match(r"^(.+)_(\d+)ms_seed\d+$", Path(clip["file"]).stem.split("__", 1)[1])
-        if match:
-            lookup[f"{clip['sweep']}|{match.group(1)}|{match.group(2)}"] = f"videos/{clip['file']}"
+    lookup = {f"{c['sweep']}|{c['task']}|{c['ms']}|{c['mode']}": f"videos/{c['file']}" for c in clips}
     details = _details_tab(results)
     modal = (
         "<div id='modal' hidden><div class='modal-backdrop' data-close></div>"
@@ -473,7 +471,7 @@ def build_site(results: Path, out: Path) -> Path:
         "<title>will-d latency sweeps</title>"
         f"<style>{CSS}</style></head><body><main>"
         "<h1>will-d: control latency sweeps</h1>"
-        f"<p class='sub'>{len(cards)} comparison charts, {len(clips)} rollout videos - click any table row to watch</p>"
+        f"<p class='sub'>{len(cards)} comparison charts, {len(clips)} rollout videos. Click any table row to watch.</p>"
         "<nav class='tabs'><button data-tab='charts' class='active'>Charts</button><button data-tab='details'>Details</button></nav>"
         f"<div id='tab-charts' class='tabpage'>{charts}</div>"
         f"<div id='tab-details' class='tabpage' hidden>{details}</div>"
