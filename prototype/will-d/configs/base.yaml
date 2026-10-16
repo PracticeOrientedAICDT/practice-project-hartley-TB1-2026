@@ -1,0 +1,26 @@
+project:
+  name: latency_sensitive_neural_accelerator
+  seed: 12345
+  task: cartpole
+training:
+  algorithm: ppo
+  learning_rate: 2.5e-4
+  anneal_lr: true
+  num_envs: 4
+  steps_per_decision: 128
+  num_minibatches: 4
+  update_epochs: 4
+  clip_coef: 0.2
+  gae_lambda_phys: 0.95
+  gamma_phys: 0.99
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  norm_adv: true
+  total_integration_steps: 4000000
+  control_training_seeds: 10
+evaluation:
+  control_episodes_per_seed: 200
+  eval_seed_base: 10000
+latency:
+  sweep_grid_ns: [20000000, 40000000, 60000000, 80000000, 100000000]

@@ -5,6 +5,13 @@ description = "Hartley prototype"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.scripts]
+latency-ml = "latency_ml.cli:main"
+
+[project.optional-dependencies]
+prototype-will-d = ["gymnasium==1.3.0","numpy>=2.4,<3","pyyaml>=6.0","torch==2.14.0","box2d==2.3.10","pygame-ce>=2.1.3","imageio-ffmpeg>=0.5.0","pillow>=10.0.0"]
+
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
@@ -20,11 +27,25 @@ markers = [
 ]
 
 [tool.ruff]
-line-length = 100
+line-length = 200
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prototype/will-d/src/latency_ml"]
+
+[tool.ty.src]
+# Exploratory spikes under prototype/ carry their own dependency stacks
+# (e.g. torch) that are not installed in the repo-root environment, so ty
+# cannot resolve their third-party imports. Keep them out of root type
+# checking; ruff still lints them.
+exclude = ["prototype"]
 
 [tool.ty.environment]
 python-version = "3.12"
